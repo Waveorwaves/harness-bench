@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Side-by-side judging</title>
+<style>
+:root { color-scheme: light dark; --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --line: #c3c2b7; --accent: #2a78d6; }
+@media (prefers-color-scheme: dark) { :root { --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --line: #383835; --accent: #3987e5; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1500px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 0; }
+header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; justify-content: space-between; }
+.sub { color: var(--ink-2); }
+details { margin: 10px 0; color: var(--ink-2); }
+details pre { white-space: pre-wrap; font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+figure img { display: block; width: 100%; height: auto; background: #000; }
+figcaption { padding: 6px 10px; color: var(--ink-2); font-size: 13px; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin: 14px 0; }
+button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+button.choice { min-width: 170px; font-weight: 600; }
+button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+button:disabled { opacity: 0.45; cursor: default; }
+kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; color: var(--ink-2); }
+progress { width: 220px; }
+#done { text-align: center; padding: 40px 0; }
+#done input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+textarea { width: 100%; height: 160px; margin-top: 16px; font: 12px ui-monospace, monospace; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Which attempt is better?</h1>
+    <span class="sub" id="count"></span>
+  </header>
+  <details><summary>The task both attempts were given</summary><pre id="prompt"></pre></details>
+  <div id="judging">
+    <div class="pair">
+      <figure><img id="left" alt="Attempt on the left"><figcaption>Left</figcaption></figure>
+      <figure><img id="right" alt="Attempt on the right"><figcaption>Right</figcaption></figure>
+    </div>
+    <div class="bar">
+      <button class="choice" data-answer="left">Left is better<kbd>&larr;</kbd></button>
+      <button class="choice" data-answer="tie">About the same<kbd>&darr;</kbd></button>
+      <button class="choice" data-answer="right">Right is better<kbd>&rarr;</kbd></button>
+    </div>
+    <div class="bar">
+      <button id="back">Back<kbd>&uarr;</kbd></button>
+      <button id="motion">Show still<kbd>space</kbd></button>
+      <progress id="progress" value="0" max="1"></progress>
+    </div>
+    <p class="sub" style="text-align:center">Judge the result against the task: how well it meets the brief and how good it looks. You are not told which tool made which.</p>
+  </div>
+  <div id="done" hidden>
+    <h1>All pairs judged</h1>
+    <p class="sub">Save your picks, then pass the file to the <code>rank</code> command.</p>
+    <p><input id="judge" placeholder="Your name" aria-label="Your name"> <button id="save">Save picks</button> <button id="review">Go back</button></p>
+    <textarea id="json" readonly aria-label="Picks as JSON"></textarea>
+  </div>
+</main>
+<script>
+const DATA = {"task_id": "pirate-ship-3d", "pairs_id": "a8d3c3aefaca", "prompt": "Build `index.html`: a real-time 3D scene of a pirate ship sailing across a moving ocean at sunset.\n\nAim for a stylised, cinematic look rather than photorealism, with the polish of finished artwork rather than a prototype or tech demo.\n\n## Requirements\n\n- **One standalone file.** Everything the page needs is inside `index.html`, including any library you use (inline it). The page is opened with no network connection, so it must not request anything else.\n- **Real-time 3D with WebGL**, on a canvas that fills the browser window with no scrollbars and follows the window when it is resized.\n- **A detailed ship, not a few boxes:** a shaped hull, masts, sails, rigging, cannons, railings, lanterns and deck structures, with small details visible.\n- **A living ocean:** moving waves, foam, and a wake where the ship cuts through the water.\n- **Sunset lighting** that shows the ship's shape and materials, with reflections on the water and a sense of depth in the atmosphere.\n- **Natural motion.** The ocean, ship, sails and camera all move at a believable speed, and the ship reads as travelling through the water.\n- **The viewer can orbit the camera** by dragging.\n- **No text anywhere** on the page or in the scene: no titles, labels, credits or instructions.\n- **It runs smoothly** and the browser console shows no errors.\n\n## Before you finish\n\nIf you can open the page in a browser, do: look at it, check the console, and fix what you find, such as a black screen, broken geometry, a bad camera angle or missing motion.\n\n## How it is judged\n\nAutomatic checks cover what can be measured: one file with no outside requests, no console errors, a WebGL canvas filling the window, a picture that is not blank and that moves, and no text on the page. Beyond that, people compare short clips of different attempts side by side and pick the better one.\n", "pairs": [{"left": "8a5e9a532591", "right": "32e59e46e7aa", "id": "p001"}, {"left": "b2a7b480c387", "right": "32e59e46e7aa", "id": "p002"}, {"left": "0bdfbd9a1864", "right": "b2a7b480c387", "id": "p003"}, {"left": "8a5e9a532591", "right": "0bdfbd9a1864", "id": "p004"}, {"left": "b2a7b480c387", "right": "8a5e9a532591", "id": "p005"}, {"left": "32e59e46e7aa", "right": "0bdfbd9a1864", "id": "p006"}], "clips": {"8a5e9a532591": [0, 126, 252, 377, 502, 627, 751, 877, 1002, 1127, 1251, 1378, 1501, 1627, 1751, 1876, 2001, 2127, 2251, 2376, 2501, 2626, 2752, 2876], "b2a7b480c387": [0, 127, 252, 377, 501, 626, 751, 877, 1002, 1126, 1251, 1376, 1501, 1626, 1752, 1876, 2001, 2127, 2254, 2376, 2502, 2627, 2751, 2876], "32e59e46e7aa": [0, 126, 251, 377, 501, 627, 751, 877, 1001, 1129, 1251, 1376, 1501, 1628, 1753, 1877, 2001, 2126, 2251, 2379, 2501, 2626, 2752, 2877], "0bdfbd9a1864": [0, 127, 251, 377, 502, 627, 752, 877, 1002, 1129, 1252, 1376, 1501, 1629, 1752, 1879, 2001, 2127, 2252, 2378, 2501, 2629, 2752, 2877]}};
+const $ = (id) => document.getElementById(id);
+const storageKey = `picks:${DATA.task_id}:${DATA.pairs_id}`;
+let picks = {};
+try { picks = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (error) { picks = {}; }
+let index = Math.min(DATA.pairs.findIndex((pair) => !picks[pair.id]) < 0 ? DATA.pairs.length : DATA.pairs.findIndex((pair) => !picks[pair.id]), DATA.pairs.length);
+let moving = true, timer = null;
+
+function play(image, name) {
+  const offsets = DATA.clips[name] || [];
+  // The still shows at once; the clip takes over as its frames arrive, so a pane is never empty.
+  image.src = `media/${name}/still.png`;
+  if (!moving || !offsets.length) return [];
+  // Preload every frame, then loop through them at the pace they were recorded.
+  return offsets.map((_, frame) => { const preload = new Image(); preload.src = `media/${name}/clip-${String(frame).padStart(3, '0')}.jpg`; return preload; });
+}
+
+function show() {
+  clearInterval(timer);
+  const finished = index >= DATA.pairs.length;
+  $('judging').hidden = finished;
+  $('done').hidden = !finished;
+  $('count').textContent = `${Object.keys(picks).length} of ${DATA.pairs.length} judged`;
+  $('progress').value = Object.keys(picks).length / DATA.pairs.length;
+  if (finished) { $('json').value = JSON.stringify(result(), null, 2); return; }
+  const pair = DATA.pairs[index];
+  $('back').disabled = index === 0;
+  $('motion').textContent = moving ? 'Show still' : 'Show motion';
+  for (const button of document.querySelectorAll('.choice')) button.style.borderColor = picks[pair.id] === button.dataset.answer ? 'var(--accent)' : '';
+  const reels = [[$('left'), pair.left], [$('right'), pair.right]].map(([image, name]) => ({ image, name, frames: play(image, name) }));
+  const started = performance.now();
+  if (moving) timer = setInterval(() => {
+    for (const reel of reels) {
+      const offsets = DATA.clips[reel.name];
+      if (!offsets.length) continue;
+      const length = offsets[offsets.length - 1] + 150, now = (performance.now() - started) % length;
+      let frame = 0;
+      while (frame + 1 < offsets.length && offsets[frame + 1] <= now) frame += 1;
+      if (reel.frames[frame].complete) reel.image.src = reel.frames[frame].src;
+    }
+  }, 40);
+}
+
+function result() {
+  return { judge: $('judge').value.trim() || 'person', kind: 'person', task_id: DATA.task_id, pairs_id: DATA.pairs_id,
+    picks: DATA.pairs.filter((pair) => picks[pair.id]).map((pair) => ({ pair: pair.id, winner: picks[pair.id] })) };
+}
+function answer(choice) {
+  if (index >= DATA.pairs.length) return;
+  picks[DATA.pairs[index].id] = choice;
+  try { localStorage.setItem(storageKey, JSON.stringify(picks)); } catch (error) { /* progress just is not kept */ }
+  index += 1;
+  show();
+}
+for (const button of document.querySelectorAll('.choice')) button.addEventListener('click', () => answer(button.dataset.answer));
+$('back').addEventListener('click', () => { index = Math.max(0, index - 1); show(); });
+$('review').addEventListener('click', () => { index = DATA.pairs.length - 1; show(); });
+$('motion').addEventListener('click', () => { moving = !moving; show(); });
+$('judge').addEventListener('input', () => { $('json').value = JSON.stringify(result(), null, 2); });
+$('save').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(result(), null, 2)], { type: 'application/json' }));
+  link.download = `picks-${(result().judge).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.json`;
+  link.click();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.target.tagName === 'INPUT') return;
+  const keys = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'tie' };
+  if (keys[event.key]) { event.preventDefault(); answer(keys[event.key]); }
+  if (event.key === 'ArrowUp') { event.preventDefault(); $('back').click(); }
+  if (event.key === ' ') { event.preventDefault(); $('motion').click(); }
+});
+$('prompt').textContent = DATA.prompt;
+show();
+</script>
+</body>
+</html>

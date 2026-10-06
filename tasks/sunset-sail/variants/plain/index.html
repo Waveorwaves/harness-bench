@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship</title>
+<style>html, body { margin: 0; height: 100%; overflow: hidden; } canvas { display: block; width: 100vw; height: 100vh; }</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// A deliberately basic attempt: it meets the requirements and nothing more.
+const canvas = document.getElementById('c');
+const g = canvas.getContext('2d');
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', resize);
+resize();
+function frame(now) {
+  const w = canvas.width, h = canvas.height, sea = h * 0.6, t = now / 1000;
+  g.fillStyle = '#f2a65a';
+  g.fillRect(0, 0, w, sea);
+  g.fillStyle = '#ffe08a';
+  g.beginPath();
+  g.arc(w * 0.7, sea - 40, 45, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#2b5c8a';
+  g.fillRect(0, sea, w, h - sea);
+  g.strokeStyle = '#9cc4e4';
+  g.lineWidth = 2;
+  for (let row = 0; row < 8; row++) {
+    g.beginPath();
+    for (let x = 0; x <= w; x += 10) g.lineTo(x, sea + 20 + row * 40 + Math.sin(x * 0.03 + t * 2 + row) * 6);
+    g.stroke();
+  }
+  const x = w * 0.35, y = sea + 30 + Math.sin(t * 2) * 4;
+  g.fillStyle = '#4a2d1a';
+  g.fillRect(x - 80, y - 20, 160, 30);
+  g.fillRect(x - 3, y - 150, 6, 130);
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.moveTo(x + 6, y - 145);
+  g.lineTo(x + 6, y - 30);
+  g.lineTo(x + 80, y - 30);
+  g.fill();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

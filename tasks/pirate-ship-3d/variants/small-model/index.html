@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pirate Ship 3D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <script>
+        // WebGL 3D Pirate Ship Scene
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl2');
+
+        if (!gl) {
+            console.error('WebGL 2 not supported');
+        }
+
+        // Resize canvas to window size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // =========================
+        // SHADER PROGRAMS
+        // =========================
+
+        const vertexShaderSource = `#version 300 es
+        precision highp float;
+
+        uniform mat4 uProjectionMatrix;
+        uniform mat4 uViewMatrix;
+        uniform mat4 uModelMatrix;
+        uniform vec3 uCameraPos;
+        uniform float uTime;
+
+        in vec3 aPosition;
+        in vec3 aNormal;
+        in vec2 aTexCoord;
+
+        out vec3 vPosition;
+        out vec3 vNormal;
+        out vec2 vTexCoord;
+        out float vDepth;
+
+        void main() {
+            vec4 worldPos = uModelMatrix * vec4(aPosition, 1.0);
+            vPosition = worldPos.xyz;
+            vNormal = normalize(mat3(uModelMatrix) * aNormal);
+            vTexCoord = aTexCoord;
+            vDepth = length(vPosition - uCameraPos);
+
+            gl_Position = uProjectionMatrix * uViewMatrix * worldPos;
+        }`;
+
+        const oceanVertexShaderSource = `#version 300 es
+        precision highp float;
+
+        uniform mat4 uProjectionMatrix;
+        uniform mat4 uViewMatrix;
+        uniform float uTime;
+
+        in vec3 aPosition;
+        in vec2 aTexCoord;
+
+        out vec3 vPosition;
+        out vec3 vNormal;
+        out vec2 vTexCoord;
+        out float vFoam;
+
+        float wave(vec3 pos, float freq, float amp, float speed, vec2 dir) {
+            float phase = dot(dir, pos.xz) * freq - uTime * speed;
+            return sin(phase) * amp;
+        }
+
+        void main() {
+            vec3 pos = aPosition;
+
+            // Multiple wave layers for realistic ocean
+            float h = 0.0;
+            h += wave(pos, 0.05, 0.8, 1.2, vec2(1.0, 0.3)) * 0.5;
+            h += wave(pos, 0.1, 0.4, 1.5, vec2(0.5, 0.9)) * 0.3;
+            h += wave(pos, 0.15, 0.2, 2.0, vec2(-0.7, 0.4)) * 0.15;
+            h += wave(pos, 0.25, 0.1, 2.5, vec2(0.3, -0.8)) * 0.1;
+
+            pos.y += h;
+
+            // Calculate normal using finite differences
+            float eps = 0.1;
+            float h_dx = wave(pos + vec3(eps, 0, 0), 0.05, 0.8, 1.2, vec2(1.0, 0.3)) * 0.5;
+            h_dx += wave(pos + vec3(eps, 0, 0), 0.1, 0.4, 1.5, vec2(0.5, 0.9)) * 0.3;
+            h_dx += wave(pos + vec3(eps, 0, 0), 0.15, 0.2, 2.0, vec2(-0.7, 0.4)) * 0.15;
+            h_dx += wave(pos + vec3(eps, 0, 0), 0.25, 0.1, 2.5, vec2(0.3, -0.8)) * 0.1;
+
+            float h_dz = wave(pos + vec3(0, 0, eps), 0.05, 0.8, 1.2, vec2(1.0, 0.3)) * 0.5;
+            h_dz += wave(pos + vec3(0, 0, eps), 0.1, 0.4, 1.5, vec2(0.5, 0.9)) * 0.3;
+            h_dz += wave(pos + vec3(0, 0, eps), 0.15, 0.2, 2.0, vec2(-0.7, 0.4)) * 0.15;
+            h_dz += wave(pos + vec3(0, 0, eps), 0.25, 0.1, 2.5, vec2(0.3, -0.8)) * 0.1;
+
+            vec3 dx = vec3(eps, h_dx - h, 0);
+            vec3 dz = vec3(0, h_dz - h, eps);
+            vNormal = normalize(cross(dz, dx));
+
+            vFoam = abs(sin(uTime + length(pos.xz) * 0.3)) * 0.5;
+
+            vPosition = pos;
+            vTexCoord = aTexCoord;
+
+            gl_Position = uProjectionMatrix * uViewMatrix * vec4(pos, 1.0);
+        }`;
+
+        const skyVertexShaderSource = `#version 300 es
+        precision highp float;
+
+        uniform mat4 uProjectionMatrix;
+        uniform mat4 uViewMatrix;
+
+        in vec3 aPosition;
+
+        out vec3 vPosition;
+
+        void main() {
+            vPosition = aPosition;
+            gl_Position = uProjectionMatrix * uViewMatrix * vec4(aPosition, 1.0);
+        }`;
+
+        const fragmentShaderSource = `#version 300 es
+        precision highp float;
+
+        uniform vec3 uSunDir;
+        uniform vec3 uViewPos;
+        uniform sampler2D uTexture;
+
+        in vec3 vPosition;
+        in vec3 vNormal;
+        in vec2 vTexCoord;
+        in float vDepth;
+
+        out vec4 FragColor;
+
+        void main() {
+            vec3 norm = normalize(vNormal);
+            vec3 lightDir = normalize(uSunDir);
+            vec3 viewDir = normalize(uViewPos - vPosition);
+
+            // Sunset colors
+            vec3 sunColor = vec3(1.0, 0.6, 0.2);
+            vec3 ambientColor = vec3(0.4, 0.3, 0.5);
+
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = sunColor * diff * 1.2;
+
+            vec3 reflectDir = reflect(-lightDir, norm);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+            vec3 specular = sunColor * spec * 0.6;
+
+            vec3 ambient = ambientColor * 0.7;
+
+            vec3 color = (ambient + diffuse + specular) * vec3(0.8, 0.6, 0.4);
+
+            // Atmospheric perspective
+            float fogFactor = clamp(vDepth / 100.0, 0.0, 1.0);
+            vec3 fogColor = vec3(1.0, 0.7, 0.3) * 0.3 + vec3(0.1, 0.1, 0.15);
+            color = mix(color, fogColor, fogFactor * 0.5);
+
+            FragColor = vec4(color, 1.0);
+        }`;
+
+        const oceanFragmentShaderSource = `#version 300 es
+        precision highp float;
+
+        uniform vec3 uSunDir;
+        uniform vec3 uViewPos;
+        uniform float uTime;
+
+        in vec3 vPosition;
+        in vec3 vNormal;
+        in vec2 vTexCoord;
+        in float vFoam;
+
+        out vec4 FragColor;
+
+        void main() {
+            vec3 norm = normalize(vNormal);
+            vec3 lightDir = normalize(uSunDir);
+            vec3 viewDir = normalize(uViewPos - vPosition);
+
+            // Ocean color - deep blue to cyan
+            vec3 oceanDeep = vec3(0.05, 0.15, 0.35);
+            vec3 oceanShallow = vec3(0.2, 0.4, 0.6);
+
+            // Fresnel effect
+            float fresnel = pow(1.0 - abs(dot(viewDir, norm)), 3.0);
+            vec3 baseColor = mix(oceanDeep, oceanShallow, fresnel * 0.7);
+
+            // Lighting
+            vec3 sunColor = vec3(1.0, 0.6, 0.2);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = sunColor * diff * 0.8;
+
+            vec3 reflectDir = reflect(-lightDir, norm);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+            vec3 specular = sunColor * spec;
+
+            vec3 ambient = vec3(0.3, 0.35, 0.4);
+
+            vec3 color = baseColor * (ambient + diffuse * 0.6) + specular;
+
+            // Foam effect
+            float foamAmount = vFoam * (1.0 - fresnel) * 0.3;
+            color = mix(color, vec3(0.9, 0.95, 1.0), foamAmount);
+
+            // Atmospheric perspective
+            float depth = length(vPosition - uViewPos);
+            float fog = clamp(depth / 150.0, 0.0, 1.0);
+            vec3 fogColor = vec3(1.0, 0.7, 0.3) * 0.2 + vec3(0.2, 0.15, 0.25);
+            color = mix(color, fogColor, fog * 0.3);
+
+            FragColor = vec4(color, 1.0);
+        }`;
+
+        const skyFragmentShaderSource = `#version 300 es
+        precision highp float;
+
+        in vec3 vPosition;
+
+        out vec4 FragColor;
+
+        void main() {
+            vec3 dir = normalize(vPosition);
+
+            // Sunset sky gradient
+            float sunsetFactor = dir.y + 0.5;
+
+            vec3 sunsetHigh = vec3(1.0, 0.8, 0.3);
+            vec3 sunsetMid = vec3(1.0, 0.5, 0.2);
+            vec3 sunsetLow = vec3(0.6, 0.2, 0.1);
+            vec3 horizonGlow = vec3(1.0, 0.6, 0.2);
+
+            vec3 color;
+            if (sunsetFactor > 0.3) {
+                color = mix(sunsetMid, sunsetHigh, (sunsetFactor - 0.3) / 0.7);
+            } else if (sunsetFactor > 0.0) {
+                color = mix(horizonGlow, sunsetMid, sunsetFactor / 0.3);
+            } else {
+                color = mix(sunsetLow, horizonGlow, (sunsetFactor + 0.2) / 0.2);
+                color = clamp(color, vec3(0.0), vec3(1.0));
+            }
+
+            FragColor = vec4(color, 1.0);
+        }`;
+
+        // Compile shaders
+        function compileShader(source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(vertexSource, fragmentSource) {
+            const vertexShader = compileShader(vertexSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(fragmentSource, gl.FRAGMENT_SHADER);
+
+            if (!vertexShader || !fragmentShader) return null;
+
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program linking error:', gl.getProgramInfoLog(program));
+                return null;
+            }
+
+            gl.deleteShader(vertexShader);
+            gl.deleteShader(fragmentShader);
+            return program;
+        }
+
+        const shipProgram = createProgram(vertexShaderSource, fragmentShaderSource);
+        const oceanProgram = createProgram(oceanVertexShaderSource, oceanFragmentShaderSource);
+        const skyProgram = createProgram(skyVertexShaderSource, skyFragmentShaderSource);
+
+        // =========================
+        // GEOMETRY FUNCTIONS
+        // =========================
+
+        function createShip() {
+            const vertices = [];
+            const indices = [];
+            let vertexCount = 0;
+
+            // Ship hull - main body
+            const hullLength = 15;
+            const hullWidth = 4;
+            const hullHeight = 3;
+
+            // Create hull with bow and stern
+            const hullSegments = 20;
+            for (let i = 0; i <= hullSegments; i++) {
+                const t = i / hullSegments;
+                const x = -hullLength/2 + t * hullLength;
+
+                // Hull cross-section
+                const widthScale = Math.sin(t * Math.PI) * 0.8 + 0.2;
+                const heightScale = Math.sin(t * Math.PI) * 0.9;
+
+                // Port side
+                vertices.push(x, -hullHeight * heightScale, -hullWidth * widthScale);
+                vertices.push(0, -1, 0); // normal (bottom)
+                vertices.push(t, 0);
+
+                // Starboard side
+                vertices.push(x, -hullHeight * heightScale, hullWidth * widthScale);
+                vertices.push(0, -1, 0);
+                vertices.push(t, 1);
+
+                // Port side top
+                vertices.push(x, hullHeight * 0.5 * heightScale, -hullWidth * widthScale);
+                vertices.push(0, 1, 0);
+                vertices.push(t, 0);
+
+                // Starboard side top
+                vertices.push(x, hullHeight * 0.5 * heightScale, hullWidth * widthScale);
+                vertices.push(0, 1, 0);
+                vertices.push(t, 1);
+            }
+
+            // Create hull faces
+            for (let i = 0; i < hullSegments; i++) {
+                const base = i * 4;
+                // Bottom
+                indices.push(base, base+1, base+5);
+                indices.push(base, base+5, base+4);
+                // Top
+                indices.push(base+2, base+6, base+7);
+                indices.push(base+2, base+7, base+3);
+                // Port
+                indices.push(base, base+2, base+6);
+                indices.push(base, base+6, base+4);
+                // Starboard
+                indices.push(base+1, base+5, base+7);
+                indices.push(base+1, base+7, base+3);
+            }
+
+            // Main mast
+            const mastBase = vertices.length / 5;
+            vertices.push(0, 2, 0, 0, 1, 0, 0, 0);
+            vertices.push(0.3, 7, 0, 0, 1, 0, 1, 0);
+            vertices.push(-0.3, 7, 0, 0, 1, 0, 0, 1);
+            vertices.push(0, 2, 0.3, 0, 1, 0, 0, 0);
+            vertices.push(0, 7, 0.3, 0, 1, 0, 1, 0);
+            vertices.push(0, 2, -0.3, 0, 1, 0, 0, 1);
+            vertices.push(0, 7, -0.3, 0, 1, 0, 1, 0);
+
+            indices.push(mastBase+0, mastBase+1, mastBase+2);
+            indices.push(mastBase+3, mastBase+4, mastBase+0);
+            indices.push(mastBase+5, mastBase+0, mastBase+6);
+
+            // Sails - Main sail
+            const sailBase = vertices.length / 5;
+            vertices.push(-0.5, 5, 0, 0, 0, 1, 0, 0);
+            vertices.push(0.2, 6, 0.2, 0, 0, 1, 1, 0);
+            vertices.push(0.2, 3, 0.5, 0, 0, 1, 1, 1);
+            vertices.push(-0.5, 4, 0.8, 0, 0, 1, 0, 1);
+
+            indices.push(sailBase+0, sailBase+1, sailBase+2);
+            indices.push(sailBase+0, sailBase+2, sailBase+3);
+
+            // Rigging (simplified)
+            const rigBase = vertices.length / 5;
+            vertices.push(-0.5, 7, 0, 0, 1, 0, 0, 0);
+            vertices.push(-4, 2, -3, 0, 1, 0, 1, 0);
+            vertices.push(-0.5, 7, 0, 0, 1, 0, 0, 1);
+            vertices.push(-4, 2, 3, 0, 1, 0, 1, 1);
+
+            // Deck structures
+            const deckBase = vertices.length / 5;
+            // Cabin
+            vertices.push(-2, 1.5, -1, 0, 1, 0, 0, 0);
+            vertices.push(-1, 1.5, -1, 0, 1, 0, 1, 0);
+            vertices.push(-1, 1.5, 1, 0, 1, 0, 1, 1);
+            vertices.push(-2, 1.5, 1, 0, 1, 0, 0, 1);
+
+            indices.push(deckBase+0, deckBase+1, deckBase+2);
+            indices.push(deckBase+0, deckBase+2, deckBase+3);
+
+            // Railings
+            const railBase = vertices.length / 5;
+            vertices.push(-7, 1.2, -2, 0, 1, 0, 0, 0);
+            vertices.push(-7, 1.5, -2, 0, 1, 0, 0, 1);
+            vertices.push(5, 1.2, -2, 0, 1, 0, 1, 0);
+            vertices.push(5, 1.5, -2, 0, 1, 0, 1, 1);
+
+            indices.push(railBase+0, railBase+1, railBase+3);
+            indices.push(railBase+0, railBase+3, railBase+2);
+
+            // Cannons
+            const cannonBase = vertices.length / 5;
+            // Port cannon
+            vertices.push(-4, 0.8, -2.2, 0, 1, 0, 0, 0);
+            vertices.push(-3.5, 0.8, -2.2, 0, 1, 0, 1, 0);
+            vertices.push(-3.5, 1, -2.2, 0, 1, 0, 1, 1);
+            vertices.push(-4, 1, -2.2, 0, 1, 0, 0, 1);
+
+            indices.push(cannonBase+0, cannonBase+1, cannonBase+2);
+            indices.push(cannonBase+0, cannonBase+2, cannonBase+3);
+
+            // Lantern
+            const lanternBase = vertices.length / 5;
+            vertices.push(-1.5, 4, 0, 0, 1, 0, 0, 0);
+            vertices.push(-1.2, 4, 0.3, 0, 1, 0, 1, 0);
+            vertices.push(-1.5, 4.5, 0, 0, 1, 0, 1, 1);
+
+            indices.push(lanternBase+0, lanternBase+1, lanternBase+2);
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint16Array(indices)
+            };
+        }
+
+        function createOcean() {
+            const vertices = [];
+            const indices = [];
+
+            const width = 200;
+            const depth = 200;
+            const segmentsX = 40;
+            const segmentsZ = 40;
+
+            const stepX = width / segmentsX;
+            const stepZ = depth / segmentsZ;
+
+            for (let z = 0; z <= segmentsZ; z++) {
+                for (let x = 0; x <= segmentsX; x++) {
+                    const px = -width/2 + x * stepX;
+                    const pz = -depth/2 + z * stepZ;
+                    vertices.push(px, 0, pz, 0, 1, 0, x/segmentsX, z/segmentsZ);
+                }
+            }
+
+            for (let z = 0; z < segmentsZ; z++) {
+                for (let x = 0; x < segmentsX; x++) {
+                    const a = z * (segmentsX + 1) + x;
+                    const b = a + 1;
+                    const c = a + segmentsX + 1;
+                    const d = c + 1;
+
+                    indices.push(a, c, b);
+                    indices.push(b, c, d);
+                }
+            }
+
+            return {
+                vertices: new Float32Array(vertices),
+                indices: new Uint32Array(indices)
+            };
+        }
+
+        function createSky() {
+            const vertices = [];
+            const indices = [];
+
+            const scale = 200;
+            const x = scale;
+            const y = scale;
+            const z = scale;
+
+            // Cube vertices
+            const cubeVertices = [
+                -x, -y, -z,  -x, y, -z,   x, y, -z,   x, -y, -z,  // front
+                -x, -y, z,   -x, y, z,    x, y, z,    x, -y, z,   // back
+                -x, y, -z,  -x, y, z,    x, y, z,    x, y, -z,    // top
+                -x, -y, -z, -x, -y, z,   x, -y, z,   x, -y, -z,   // bottom
+                -x, -y, -z, -x, -y, z,  -x, y, z,   -x, y, -z,    // left
+                x, -y, -z,   x, -y, z,   x, y, z,    x, y, -z     // right
+            ];
+
+            const cubeIndices = [
+                0, 1, 2,  0, 2, 3,
+                4, 6, 5,  4, 7, 6,
+                8, 9, 10, 8, 10, 11,
+                12, 14, 13, 12, 15, 14,
+                16, 18, 17, 16, 19, 18,
+                20, 21, 22, 20, 22, 23
+            ];
+
+            return {
+                vertices: new Float32Array(cubeVertices),
+                indices: new Uint16Array(cubeIndices)
+            };
+        }
+
+        // =========================
+        // BUFFER SETUP
+        // =========================
+
+        function createMesh(geometry) {
+            const vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+
+            const vbo = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
+
+            const ebo = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
+
+            return {
+                vao,
+                vbo,
+                ebo,
+                indexCount: geometry.indices.length
+            };
+        }
+
+        function setupShipAttributes(program) {
+            const posAttrib = gl.getAttribLocation(program, 'aPosition');
+            const normalAttrib = gl.getAttribLocation(program, 'aNormal');
+            const texAttrib = gl.getAttribLocation(program, 'aTexCoord');
+
+            gl.enableVertexAttribArray(posAttrib);
+            gl.enableVertexAttribArray(normalAttrib);
+            gl.enableVertexAttribArray(texAttrib);
+
+            gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 20, 0);
+            gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 20, 12);
+            gl.vertexAttribPointer(texAttrib, 2, gl.FLOAT, false, 20, 24);
+        }
+
+        function setupOceanAttributes(program) {
+            const posAttrib = gl.getAttribLocation(program, 'aPosition');
+            const texAttrib = gl.getAttribLocation(program, 'aTexCoord');
+
+            gl.enableVertexAttribArray(posAttrib);
+            gl.enableVertexAttribArray(texAttrib);
+
+            gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 32, 0);
+            gl.vertexAttribPointer(texAttrib, 2, gl.FLOAT, false, 32, 24);
+        }
+
+        function setupSkyAttributes(program) {
+            const posAttrib = gl.getAttribLocation(program, 'aPosition');
+            gl.enableVertexAttribArray(posAttrib);
+            gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 12, 0);
+        }
+
+        const shipGeo = createShip();
+        const oceanGeo = createOcean();
+        const skyGeo = createSky();
+
+        const shipMesh = createMesh(shipGeo);
+        const oceanMesh = createMesh(oceanGeo);
+        const skyMesh = createMesh(skyGeo);
+
+        // =========================
+        // MATRIX MATH
+        // =========================
+
+        function identity() {
+            return new Float32Array([
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+            ]);
+        }
+
+        function multiply(a, b) {
+            const result = new Float32Array(16);
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < 4; k++) {
+                        sum += a[i * 4 + k] * b[k * 4 + j];
+                    }
+                    result[i * 4 + j] = sum;
+                }
+            }
+            return result;
+        }
+
+        function translate(mat, x, y, z) {
+            const result = mat.slice();
+            result[12] += x;
+            result[13] += y;
+            result[14] += z;
+            return result;
+        }
+
+        function rotateY(mat, angle) {
+            const c = Math.cos(angle);
+            const s = Math.sin(angle);
+            const rot = new Float32Array([
+                c, 0, -s, 0,
+                0, 1, 0, 0,
+                s, 0, c, 0,
+                0, 0, 0, 1
+            ]);
+            return multiply(mat, rot);
+        }
+
+        function perspective(fov, aspect, near, far) {
+            const f = 1 / Math.tan(fov / 2);
+            const result = new Float32Array(16);
+            result[0] = f / aspect;
+            result[5] = f;
+            result[10] = (far + near) / (near - far);
+            result[11] = -1;
+            result[14] = (2 * far * near) / (near - far);
+            return result;
+        }
+
+        function lookAt(eye, center, up) {
+            const f = new Float32Array(3);
+            f[0] = center[0] - eye[0];
+            f[1] = center[1] - eye[1];
+            f[2] = center[2] - eye[2];
+
+            const len = Math.sqrt(f[0]*f[0] + f[1]*f[1] + f[2]*f[2]);
+            f[0] /= len;
+            f[1] /= len;
+            f[2] /= len;
+
+            const s = new Float32Array(3);
+            s[0] = f[1] * up[2] - f[2] * up[1];
+            s[1] = f[2] * up[0] - f[0] * up[2];
+            s[2] = f[0] * up[1] - f[1] * up[0];
+
+            const slen = Math.sqrt(s[0]*s[0] + s[1]*s[1] + s[2]*s[2]);
+            s[0] /= slen;
+            s[1] /= slen;
+            s[2] /= slen;
+
+            const u = new Float32Array(3);
+            u[0] = s[1] * f[2] - s[2] * f[1];
+            u[1] = s[2] * f[0] - s[0] * f[2];
+            u[2] = s[0] * f[1] - s[1] * f[0];
+
+            const result = new Float32Array(16);
+            result[0] = s[0]; result[4] = s[1]; result[8] = s[2];
+            result[1] = u[0]; result[5] = u[1]; result[9] = u[2];
+            result[2] = -f[0]; result[6] = -f[1]; result[10] = -f[2];
+            result[15] = 1;
+
+            result[12] = -s[0]*eye[0] - s[1]*eye[1] - s[2]*eye[2];
+            result[13] = -u[0]*eye[0] - u[1]*eye[1] - u[2]*eye[2];
+            result[14] = f[0]*eye[0] + f[1]*eye[1] + f[2]*eye[2];
+
+            return result;
+        }
+
+        // =========================
+        // CAMERA CONTROLS
+        // =========================
+
+        let cameraAngleX = 0.3;
+        let cameraAngleY = 0;
+        let cameraDistance = 20;
+
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+
+                cameraAngleY += deltaX * 0.01;
+                cameraAngleX += deltaY * 0.01;
+                cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleX));
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            cameraDistance += e.deltaY * 0.01;
+            cameraDistance = Math.max(5, Math.min(50, cameraDistance));
+        });
+
+        // =========================
+        // ANIMATION & RENDERING
+        // =========================
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.BACK);
+
+        let lastTime = Date.now();
+
+        function render() {
+            const now = Date.now();
+            const deltaTime = (now - lastTime) / 1000;
+            lastTime = now;
+            const time = now * 0.001;
+
+            gl.clearColor(0.1, 0.1, 0.15, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            const aspect = canvas.width / canvas.height;
+            const projection = perspective(Math.PI / 3, aspect, 0.1, 300);
+
+            // Camera position
+            const camX = Math.cos(cameraAngleY) * Math.cos(cameraAngleX) * cameraDistance;
+            const camY = Math.sin(cameraAngleX) * cameraDistance + 5;
+            const camZ = Math.sin(cameraAngleY) * Math.cos(cameraAngleX) * cameraDistance;
+
+            const cameraPos = [camX, camY, camZ];
+            const shipPos = [Math.sin(time * 0.3) * 8, 0, Math.cos(time * 0.3) * 8];
+            const view = lookAt(cameraPos, shipPos, [0, 1, 0]);
+
+            // Sun direction (from sunset angle)
+            const sunDir = [-0.5, 0.3, 0.8];
+            const sunDirLen = Math.sqrt(sunDir[0]*sunDir[0] + sunDir[1]*sunDir[1] + sunDir[2]*sunDir[2]);
+            sunDir[0] /= sunDirLen;
+            sunDir[1] /= sunDirLen;
+            sunDir[2] /= sunDirLen;
+
+            // Render sky
+            gl.useProgram(skyProgram);
+            gl.bindVertexArray(skyMesh.vao);
+            setupSkyAttributes(skyProgram);
+
+            const skyModel = translate(identity(), camX, camY, camZ);
+            gl.uniformMatrix4fv(gl.getUniformLocation(skyProgram, 'uProjectionMatrix'), false, projection);
+            gl.uniformMatrix4fv(gl.getUniformLocation(skyProgram, 'uViewMatrix'), false, view);
+            gl.drawElements(gl.TRIANGLES, skyMesh.indexCount, gl.UNSIGNED_SHORT, 0);
+
+            // Render ocean
+            gl.useProgram(oceanProgram);
+            gl.bindVertexArray(oceanMesh.vao);
+            setupOceanAttributes(oceanProgram);
+
+            const oceanModel = identity();
+            gl.uniformMatrix4fv(gl.getUniformLocation(oceanProgram, 'uProjectionMatrix'), false, projection);
+            gl.uniformMatrix4fv(gl.getUniformLocation(oceanProgram, 'uViewMatrix'), false, view);
+            gl.uniform3fv(gl.getUniformLocation(oceanProgram, 'uSunDir'), new Float32Array(sunDir));
+            gl.uniform3fv(gl.getUniformLocation(oceanProgram, 'uViewPos'), new Float32Array(cameraPos));
+            gl.uniform1f(gl.getUniformLocation(oceanProgram, 'uTime'), time);
+            gl.uniformMatrix4fv(gl.getUniformLocation(oceanProgram, 'uModelMatrix'), false, oceanModel);
+            gl.drawElements(gl.TRIANGLES, oceanMesh.indexCount, gl.UNSIGNED_INT, 0);
+
+            // Render ship
+            gl.useProgram(shipProgram);
+            gl.bindVertexArray(shipMesh.vao);
+            setupShipAttributes(shipProgram);
+
+            let shipModel = identity();
+            shipModel = translate(shipModel, shipPos[0], shipPos[1], shipPos[2]);
+            shipModel = rotateY(shipModel, Math.atan2(-Math.cos(time * 0.3) * 8, -Math.sin(time * 0.3) * 8));
+
+            gl.uniformMatrix4fv(gl.getUniformLocation(shipProgram, 'uProjectionMatrix'), false, projection);
+            gl.uniformMatrix4fv(gl.getUniformLocation(shipProgram, 'uViewMatrix'), false, view);
+            gl.uniformMatrix4fv(gl.getUniformLocation(shipProgram, 'uModelMatrix'), false, shipModel);
+            gl.uniform3fv(gl.getUniformLocation(shipProgram, 'uSunDir'), new Float32Array(sunDir));
+            gl.uniform3fv(gl.getUniformLocation(shipProgram, 'uViewPos'), new Float32Array(cameraPos));
+            gl.uniform1f(gl.getUniformLocation(shipProgram, 'uTime'), time);
+            gl.drawElements(gl.TRIANGLES, shipMesh.indexCount, gl.UNSIGNED_SHORT, 0);
+
+            requestAnimationFrame(render);
+        }
+
+        render();
+    </script>
+</body>
+</html>

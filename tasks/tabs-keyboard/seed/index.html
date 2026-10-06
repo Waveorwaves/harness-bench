@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings</title>
+<link rel="stylesheet" href="src/tabs.css">
+</head>
+<body>
+<main>
+  <h1>Settings</h1>
+  <div class="tabs" id="settings">
+    <div class="tab-list">
+      <button class="tab active" id="tab-profile" data-panel="panel-profile">Profile</button>
+      <button class="tab" id="tab-notifications" data-panel="panel-notifications">Notifications</button>
+      <button class="tab" id="tab-billing" data-panel="panel-billing">Billing</button>
+      <button class="tab" id="tab-security" data-panel="panel-security">Security</button>
+    </div>
+    <div class="panel open" id="panel-profile">
+      <h2>Profile</h2>
+      <p>Your name and photo, as shown to other people.</p>
+      <label>Display name <input id="display-name" value="Sam Rivera"></label>
+    </div>
+    <div class="panel" id="panel-notifications">
+      <h2>Notifications</h2>
+      <label><input type="checkbox" id="notify-email" checked> Email me about activity</label>
+    </div>
+    <div class="panel" id="panel-billing">
+      <h2>Billing</h2>
+      <p>Choose how often you are billed.</p>
+      <div class="tabs small" id="period">
+        <div class="tab-list">
+          <button class="tab active" id="tab-monthly" data-panel="panel-monthly">Monthly</button>
+          <button class="tab" id="tab-yearly" data-panel="panel-yearly">Yearly</button>
+        </div>
+        <div class="panel open" id="panel-monthly"><p>$12 each month.</p></div>
+        <div class="panel" id="panel-yearly"><p>$120 each year. Two months free.</p></div>
+      </div>
+    </div>
+    <div class="panel" id="panel-security">
+      <h2>Security</h2>
+      <button id="sign-out-everywhere">Sign out of all devices</button>
+    </div>
+  </div>
+</main>
+<script type="module" src="src/tabs.js"></script>
+</body>
+</html>

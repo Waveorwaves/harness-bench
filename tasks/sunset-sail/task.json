@@ -1,0 +1,19 @@
+{
+  "kind": "visual showcase",
+  "evaluator_command": "python3 -B \"$HB_EVAL/check.py\"",
+  "evaluator_timeout_seconds": 60,
+  "capture": {
+    "path": "index.html",
+    "width": 1280,
+    "height": 800,
+    "times_ms": [
+      1000,
+      3000
+    ],
+    "probe": "(() => { const c = [...document.querySelectorAll('canvas')].map((e) => e.getBoundingClientRect()); const d = document.documentElement; return { canvases: c.length, widest: Math.max(0, ...c.map((r) => r.width)), tallest: Math.max(0, ...c.map((r) => r.height)), innerWidth, innerHeight, scrollWidth: d.scrollWidth, scrollHeight: d.scrollHeight }; })()",
+    "clip": {
+      "duration_ms": 2500,
+      "frames": 20
+    }
+  }
+}

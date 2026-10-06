@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "suite_id": "pipeline-smoke",
+  "comparison": "controlled",
+  "seed": 1,
+  "repetitions": 2,
+  "budget": {"timeout_seconds": 5, "max_retries": 0},
+  "models": [
+    {"id": "fake-model", "name": "fake-model", "reasoning_effort": null,
+     "price_per_mtok": {"input": 1.0, "cached_input": 0.1, "output": 4.0}}
+  ],
+  "modes": [
+    {"id": "single", "prompt_suffix": ""},
+    {"id": "subagents", "prompt_suffix": "\n\nSplit the work across subagents where your harness supports them."}
+  ],
+  "tasks": [
+    {"id": "smoke-slugify", "spec": "tasks/smoke-slugify", "seed_revision": null, "evaluator_revision": null}
+  ],
+  "harnesses": [
+    {"id": "mock-solves", "adapter": "mock", "args": ["reference"], "version": null},
+    {"id": "mock-idle", "adapter": "mock", "args": ["noop"], "version": null, "modes": ["single"]},
+    {"id": "mock-hangs", "adapter": "mock", "args": ["hang"], "version": null, "modes": ["single"]},
+    {"id": "mock-crashes", "adapter": "mock", "args": ["crash"], "version": null, "modes": ["single"]}
+  ]
+}

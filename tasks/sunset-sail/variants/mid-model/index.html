@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunset Sail</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0f2a; }
+  canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+  var TAU = Math.PI * 2;
+
+  // ---- layout state (CSS pixels) -------------------------------------------
+  var W = 1, H = 1, DPR = 1;
+  var HZ = 0, SEA = 1;               // horizon y, sea height
+  var SX = 0, SY = 0, SR = 20;       // sun centre and radius
+  var U = 10;                        // ship unit in px
+  var SHIP_X = 0, SHIP_Y = 0, SC = 1;
+  var backdrop = null, vignette = null, shipSprite = null;
+  var clouds = [], stars = [], birds = [];
+  var NL = 46, STEP = 8, NX = 2, WAVE_V = 0.5;
+  var wy = [], wyb = new Float32Array(NL + 1), ws = new Float32Array(NL + 1);
+  var t0 = null, curT = 0;
+  var OX = 7.6, OY = 11, SPW = 15.2, SPH = 12;   // ship sprite origin / size, in ship units
+
+  // ---- helpers -------------------------------------------------------------
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function smooth(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+  function hash(n) { var s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+  function A(r, g, b, a) {
+    if (!(a > 0)) a = 0; else if (a > 1) a = 1;
+    return 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ',' + (Math.round(a * 1000) / 1000) + ')';
+  }
+  function AC(c, a) { return A(c[0], c[1], c[2], a); }
+  function mixc(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function P(x) { return clamp(x / W, 0, 1); }
+
+  function mk(w, h) {
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(w * DPR));
+    c.height = Math.max(1, Math.ceil(h * DPR));
+    var g = c.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    return { c: c, g: g, w: w, h: h };
+  }
+
+  // ---- resize --------------------------------------------------------------
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(2, window.innerWidth || document.documentElement.clientWidth || 800);
+    H = Math.max(2, window.innerHeight || document.documentElement.clientHeight || 600);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+
+    var portrait = W < H * 0.95;
+    SC = clamp(Math.min(W, H * 1.45) / 1440, 0.3, 1.4);
+    HZ = Math.round(H * (portrait ? 0.58 : 0.57));
+    SEA = H - HZ;
+    SR = clamp(Math.min(W, H) * 0.075, 16, 90);
+    SX = W * (portrait ? 0.70 : 0.665);
+    SY = HZ - SR * 0.42;
+    U = Math.max(6, Math.min(W * 0.04, H * 0.038));
+    SHIP_X = W * (portrait ? 0.40 : 0.325);
+    SHIP_Y = HZ + SEA * 0.21;
+
+    NX = Math.ceil(W / STEP) + 2;
+    wy = [];
+    for (var i = 0; i <= NL; i++) wy.push(new Float32Array(NX));
+
+    backdrop = buildBackdrop();
+    vignette = buildVignette();
+    buildClouds();
+    buildStars();
+    buildBirds();
+    shipSprite = mk(SPW * U, SPH * U);
+  }
+
+  // ---- static backdrop: sky, sun, moon, islands, sea base ------------------
+  function buildBackdrop() {
+    var b = mk(W, H), g = b.g, i;
+
+    // sky gradient
+    var sky = g.createLinearGradient(0, 0, 0, HZ);
+    sky.addColorStop(0.00, '#0d1236');
+    sky.addColorStop(0.20, '#272163');
+    sky.addColorStop(0.40, '#66347f');
+    sky.addColorStop(0.58, '#b3466f');
+    sky.addColorStop(0.74, '#ec6b58');
+    sky.addColorStop(0.88, '#ff9c56');
+    sky.addColorStop(1.00, '#ffd584');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, HZ + 1);
+
+    // warm wash centred on the sun (elliptical)
+    g.save();
+    g.globalCompositeOperation = 'screen';
+    g.translate(SX, HZ);
+    g.scale(1, 0.62);
+    var wash = g.createRadialGradient(0, 0, 0, 0, 0, W * 0.75);
+    wash.addColorStop(0, A(255, 170, 90, 0.75));
+    wash.addColorStop(0.25, A(255, 120, 80, 0.38));
+    wash.addColorStop(0.6, A(200, 70, 110, 0.12));
+    wash.addColorStop(1, A(120, 40, 120, 0));
+    g.fillStyle = wash;
+    g.fillRect(-W * 0.8, -HZ * 1.8, W * 1.6, HZ * 1.8 + 2);
+    g.restore();
+
+    // crescent moon, upper left
+    var mr = clamp(Math.min(W, H) * 0.03, 7, 34), mx = W * 0.16, my = HZ * 0.22;
+    g.save();
+    g.globalCompositeOperation = 'screen';
+    var mg = g.createRadialGradient(mx, my, 0, mx, my, mr * 5);
+    mg.addColorStop(0, A(255, 235, 210, 0.35));
+    mg.addColorStop(0.3, A(255, 200, 190, 0.12));
+    mg.addColorStop(1, A(255, 200, 190, 0));
+    g.fillStyle = mg;
+    g.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    g.restore();
+    g.save();
+    g.beginPath(); g.arc(mx, my, mr, 0, TAU); g.clip();
+    g.fillStyle = '#ffeede';
+    g.beginPath();
+    g.arc(mx, my, mr, 0, TAU);
+    var bx = mx - mr * 0.5, by = my - mr * 0.3, br = mr * 0.92;
+    g.moveTo(bx + br, by);
+    g.arc(bx, by, br, 0, TAU);
+    g.fill('evenodd');
+    g.restore();
+
+    // sun glow + disc (above the horizon only)
+    g.save();
+    g.beginPath(); g.rect(0, 0, W, HZ); g.clip();
+    g.globalCompositeOperation = 'screen';
+    var gl = g.createRadialGradient(SX, SY, SR * 0.8, SX, SY, SR * 7);
+    gl.addColorStop(0, A(255, 236, 170, 0.95));
+    gl.addColorStop(0.12, A(255, 205, 120, 0.6));
+    gl.addColorStop(0.35, A(255, 150, 90, 0.25));
+    gl.addColorStop(0.7, A(255, 100, 90, 0.07));
+    gl.addColorStop(1, A(255, 100, 90, 0));
+    g.fillStyle = gl;
+    g.fillRect(SX - SR * 7, SY - SR * 7, SR * 14, SR * 14);
+    g.globalCompositeOperation = 'source-over';
+    var sd = g.createRadialGradient(SX, SY, 0, SX, SY, SR);
+    sd.addColorStop(0, '#fffef4');
+    sd.addColorStop(0.75, '#fff3c6');
+    sd.addColorStop(1, '#ffdc8a');
+    g.fillStyle = sd;
+    g.beginPath(); g.arc(SX, SY, SR, 0, TAU); g.fill();
+    g.restore();
+
+    // distant islands on the horizon
+    function island(x0, x1, hmax, seed, c1, c2) {
+      var rr = rng(seed), n = 48, ph1 = rr() * 6, ph2 = rr() * 6;
+      g.beginPath();
+      g.moveTo(x0, HZ + 1);
+      for (var k = 0; k <= n; k++) {
+        var u = k / n;
+        var e = Math.pow(Math.sin(Math.PI * u), 0.9);
+        var h = hmax * e * (0.62 + 0.25 * Math.sin(u * 9 + ph1) + 0.13 * Math.sin(u * 23 + ph2));
+        g.lineTo(lerp(x0, x1, u), HZ - Math.max(0, h));
+      }
+      g.lineTo(x1, HZ + 1);
+      g.closePath();
+      var gr = g.createLinearGradient(0, HZ - hmax, 0, HZ);
+      gr.addColorStop(0, c1);
+      gr.addColorStop(1, c2);
+      g.fillStyle = gr;
+      g.fill();
+    }
+    island(W * 0.80, W * 1.05, H * 0.05, 5, '#472a64', '#b05f78');
+    island(-W * 0.02, W * 0.13, H * 0.022, 9, '#6a3a74', '#c47078');
+
+    // horizon haze
+    g.save();
+    g.globalCompositeOperation = 'screen';
+    var hy0 = HZ - 60 * SC, hy1 = HZ + 10 * SC;
+    var hz = g.createLinearGradient(0, hy0, 0, hy1);
+    hz.addColorStop(0, A(255, 200, 130, 0));
+    hz.addColorStop(0.8, A(255, 205, 140, 0.35));
+    hz.addColorStop(1, A(255, 215, 150, 0.15));
+    g.fillStyle = hz;
+    g.fillRect(0, hy0, W, hy1 - hy0);
+    g.restore();
+
+    // sea base gradient
+    var sea = g.createLinearGradient(0, HZ, 0, H);
+    sea.addColorStop(0.00, '#f7a35f');
+    sea.addColorStop(0.03, '#e07b66');
+    sea.addColorStop(0.10, '#a4506f');
+    sea.addColorStop(0.24, '#5a3b73');
+    sea.addColorStop(0.45, '#2a2f66');
+    sea.addColorStop(0.75, '#142049');
+    sea.addColorStop(1.00, '#0a1530');
+    g.fillStyle = sea;
+    g.fillRect(0, HZ, W, SEA + 1);
+
+    g.save();
+    g.beginPath(); g.rect(0, HZ, W, SEA); g.clip();
+    g.globalCompositeOperation = 'screen';
+
+    // warm wash on the water near the sun
+    g.save();
+    g.translate(SX, HZ);
+    g.scale(1, 0.30);
+    var sw = g.createRadialGradient(0, 0, 0, 0, 0, W * 0.6);
+    sw.addColorStop(0, A(255, 160, 90, 0.65));
+    sw.addColorStop(0.3, A(240, 110, 100, 0.30));
+    sw.addColorStop(0.7, A(150, 60, 130, 0.08));
+    sw.addColorStop(1, A(100, 50, 140, 0));
+    g.fillStyle = sw;
+    g.fillRect(-W * 0.7, 0, W * 1.4, SEA / 0.30 + 2);
+    g.restore();
+
+    // soft sun path on the water: nested trapezoids
+    var cols = [[2.4, 0.30], [1.7, 0.22], [1.15, 0.15], [0.7, 0.09], [0.38, 0.05]];
+    for (i = 0; i < cols.length; i++) {
+      var ht = SR * cols[i][0], hb = SR * cols[i][0] * 0.8 + W * cols[i][1] * 0.5;
+      g.beginPath();
+      g.moveTo(SX - ht, HZ); g.lineTo(SX + ht, HZ);
+      g.lineTo(SX + hb, H); g.lineTo(SX - hb, H);
+      g.closePath();
+      var cg = g.createLinearGradient(0, HZ, 0, H);
+      cg.addColorStop(0, A(255, 210, 130, 0.20));
+      cg.addColorStop(0.35, A(255, 170, 100, 0.11));
+      cg.addColorStop(1, A(255, 140, 100, 0.03));
+      g.fillStyle = cg;
+      g.fill();
+    }
+    g.restore();
+    return b;
+  }
+
+  function buildVignette() {
+    var v = mk(W, H), g = v.g;
+    var r = Math.hypot(W, H) * 0.5;
+    var rg = g.createRadialGradient(W * 0.5, H * 0.55, r * 0.35, W * 0.5, H * 0.55, r * 1.05);
+    rg.addColorStop(0, A(8, 4, 28, 0));
+    rg.addColorStop(1, A(8, 4, 28, 0.62));
+    g.fillStyle = rg;
+    g.fillRect(0, 0, W, H);
+    var bg = g.createLinearGradient(0, HZ + SEA * 0.45, 0, H);
+    bg.addColorStop(0, A(6, 10, 30, 0));
+    bg.addColorStop(1, A(6, 10, 30, 0.42));
+    g.fillStyle = bg;
+    g.fillRect(0, HZ, W, SEA);
+    var tg = g.createLinearGradient(0, 0, 0, HZ * 0.5);
+    tg.addColorStop(0, A(8, 6, 30, 0.35));
+    tg.addColorStop(1, A(8, 6, 30, 0));
+    g.fillStyle = tg;
+    g.fillRect(0, 0, W, HZ * 0.5);
+    return v;
+  }
+
+  // ---- clouds --------------------------------------------------------------
+  function makeCloud(w, h, pal, rnd) {
+    var s = mk(w, h), g = s.g;
+    var n = Math.round(24 + w / 9);
+    for (var i = 0; i < n; i++) {
+      var u = rnd();
+      var env = Math.pow(Math.sin(Math.PI * (0.04 + 0.92 * u)), 0.8);
+      var cx = w * (0.06 + 0.88 * u);
+      var rx = w * (0.05 + 0.11 * rnd()) * (0.5 + 0.5 * env);
+      var ry = Math.max(1.5, h * (0.18 + 0.3 * rnd()) * (0.4 + 0.6 * env));
+      var cy = h * (0.52 + (rnd() - 0.5) * 0.35 * env);
+      g.save();
+      g.translate(cx, cy);
+      g.scale(1, ry / rx);
+      var gr = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+      gr.addColorStop(0, 'rgba(255,255,255,0.30)');
+      gr.addColorStop(0.55, 'rgba(255,255,255,0.14)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.arc(0, 0, rx, 0, TAU); g.fill();
+      g.restore();
+    }
+    g.globalCompositeOperation = 'source-in';
+    var lg = g.createLinearGradient(0, 0, 0, h);
+    lg.addColorStop(0.2, pal[0]);
+    lg.addColorStop(0.55, pal[1]);
+    lg.addColorStop(0.85, pal[2]);
+    g.fillStyle = lg;
+    g.fillRect(0, 0, w, h);
+    return s;
+  }
+
+  function buildClouds() {
+    var rnd = rng(7), defs = [
+      { n: 4, ya: 0.05, yb: 0.28, wa: 0.40, wb: 0.70, hr: 0.085, pal: ['#3d2f7e', '#8f4a92', '#e0707f'], a: 0.55, va: 2.5, vb: 5 },
+      { n: 5, ya: 0.28, yb: 0.56, wa: 0.30, wb: 0.60, hr: 0.11, pal: ['#52307a', '#cf5a7c', '#ff9f6c'], a: 0.80, va: 4, vb: 8 },
+      { n: 5, ya: 0.60, yb: 0.84, wa: 0.26, wb: 0.52, hr: 0.10, pal: ['#7e3a72', '#ee7660', '#ffc878'], a: 0.90, va: 6, vb: 11 },
+      { n: 3, ya: 0, yb: 0, wa: 0.18, wb: 0.32, hr: 0.06, pal: ['#2c1a4c', '#6a2d62', '#ff8a58'], a: 0.85, va: 2, vb: 4, sun: true }
+    ];
+    clouds = [];
+    for (var d = 0; d < defs.length; d++) {
+      var df = defs[d];
+      for (var i = 0; i < df.n; i++) {
+        var w = W * lerp(df.wa, df.wb, rnd());
+        var h = Math.max(14, w * df.hr);
+        var cy = df.sun ? SY - SR * (0.2 + rnd() * 1.7) : HZ * lerp(df.ya, df.yb, rnd());
+        var top = clamp(cy - h / 2, 0, HZ - h);
+        clouds.push({
+          s: makeCloud(w, h, df.pal, rnd), w: w, h: h, y: top, a: df.a,
+          v: lerp(df.va, df.vb, rnd()) * Math.max(SC, 0.5),
+          x0: rnd() * (W + w)
+        });
+      }
+    }
+  }
+
+  function drawClouds(t) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, HZ); ctx.clip();
+    for (var i = 0; i < clouds.length; i++) {
+      var c = clouds[i];
+      var m = (c.x0 + c.v * t) % (W + c.w);
+      ctx.globalAlpha = c.a;
+      ctx.drawImage(c.s.c, m - c.w, c.y, c.w, c.h);
+    }
+    ctx.restore();
+  }
+
+  // ---- stars, rays, birds --------------------------------------------------
+  function buildStars() {
+    var r = rng(3), n = Math.round(clamp(W * HZ / 9000, 40, 180));
+    stars = [];
+    for (var i = 0; i < n; i++) {
+      stars.push({ x: r() * W, y: Math.pow(r(), 1.7) * HZ * 0.55, r: 0.4 + r() * 0.9, ph: r() * TAU, sp: 0.6 + r() * 1.8, b: 0.4 + r() * 0.6 });
+    }
+  }
+
+  function drawStars(t) {
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      var fade = Math.pow(clamp(1 - s.y / (HZ * 0.55), 0, 1), 0.8);
+      var a = s.b * fade * (0.55 + 0.45 * Math.sin(t * s.sp + s.ph));
+      if (a < 0.03) continue;
+      ctx.fillStyle = A(255, 244, 230, a);
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+    }
+  }
+
+  function drawRays(t) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, HZ); ctx.clip();
+    ctx.globalCompositeOperation = 'screen';
+    var L = Math.max(W, H) * 1.3;
+    var g = ctx.createRadialGradient(SX, SY, SR * 0.5, SX, SY, L);
+    g.addColorStop(0, A(255, 200, 130, 0.20));
+    g.addColorStop(0.5, A(255, 160, 110, 0.07));
+    g.addColorStop(1, A(255, 140, 110, 0));
+    ctx.fillStyle = g;
+    for (var i = 0; i < 11; i++) {
+      var base = -Math.PI * 0.5 + (i - 5) * 0.22 + Math.sin(t * 0.07 + i * 1.7) * 0.025;
+      var half = 0.022 + 0.03 * hash(i + 4.2);
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 0.35 + i * 2.3);
+      ctx.beginPath();
+      ctx.moveTo(SX, SY);
+      ctx.lineTo(SX + Math.cos(base - half) * L, SY + Math.sin(base - half) * L);
+      ctx.lineTo(SX + Math.cos(base + half) * L, SY + Math.sin(base + half) * L);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function buildBirds() {
+    var r = rng(21), n = 7;
+    birds = [];
+    for (var i = 0; i < n; i++) {
+      birds.push({
+        dx: i * 34 * SC + (r() - 0.5) * 24 * SC,
+        dy: (r() - 0.5) * 40 * SC + Math.abs(i - 3) * 9 * SC,
+        s: (5 + r() * 4.5) * Math.max(SC, 0.6),
+        ph: r() * TAU, f: 2.4 + r() * 1.6
+      });
+    }
+  }
+
+  function drawBirds(t) {
+    var span = W + 420, fx = W + 200 - ((t * 22 * Math.max(SC, 0.6) + W * 0.35) % span);
+    var fy = HZ * 0.46;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(28,12,42,0.82)';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (var i = 0; i < birds.length; i++) {
+      var b = birds[i], s = b.s;
+      var x = fx + b.dx, y = fy + b.dy + Math.sin(t * 0.6 + b.ph) * 4;
+      var flap = Math.sin(t * b.f + b.ph) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 0.4 + b.ph)));
+      ctx.lineWidth = Math.max(1, s * 0.26);
+      ctx.beginPath();
+      ctx.moveTo(x - s, y - flap * s * 0.55 + s * 0.1);
+      ctx.quadraticCurveTo(x - s * 0.5, y - s * 0.38 - flap * s * 0.3, x, y);
+      ctx.quadraticCurveTo(x + s * 0.5, y - s * 0.38 - flap * s * 0.3, x + s, y - flap * s * 0.55 + s * 0.1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---- sea -----------------------------------------------------------------
+  function computeWaves(t) {
+    var ft = t * WAVE_V, F = Math.floor(ft), frac = ft - F;
+    var q = SEA / 400;
+    for (var i = 0; i <= NL; i++) {
+      var s = (i + frac) / NL;
+      var yb = HZ + SEA * s * s;
+      var id = i - F;
+      var amp = q * (0.25 + 9 * s * s);
+      var lam = (46 + 420 * s) * Math.max(SC, 0.55);
+      var k1 = TAU / lam, k2 = TAU / (lam * 0.41), k3 = TAU / (lam * 2.7);
+      var p1 = hash(id) * TAU, p2 = hash(id + 57.3) * TAU, p3 = hash(id + 13.7) * TAU;
+      var s1 = t * (0.9 + 1.1 * s), s2 = t * (1.3 + 0.8 * s), s3 = t * 0.35;
+      var arr = wy[i];
+      ws[i] = s; wyb[i] = yb;
+      for (var j = 0; j < NX; j++) {
+        var x = j * STEP;
+        arr[j] = yb + amp * (0.55 * Math.sin(x * k1 + p1 + s1) + 0.28 * Math.sin(x * k2 + p2 - s2) + 0.17 * Math.sin(x * k3 + p3 + s3));
+      }
+    }
+    return F;
+  }
+
+  var GOLD = [255, 226, 150], SPARK = [255, 244, 205];
+
+  function drawSea(t, pose) {
+    var F = computeWaves(t), i, j;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, HZ, W, SEA); ctx.clip();
+
+    // 1. shaded bands between consecutive wave crests
+    for (i = 0; i < NL; i++) {
+      var yb0 = wyb[i], yb1 = wyb[i + 1];
+      if (yb0 > H + 20) break;
+      var a0 = wy[i], a1 = wy[i + 1];
+      var al = (0.10 + 0.22 * Math.sqrt(ws[i])) * (0.75 + 0.5 * hash(i - F + 3.1));
+      var gr = ctx.createLinearGradient(0, yb0, 0, yb1);
+      gr.addColorStop(0, A(30, 14, 62, 0));
+      gr.addColorStop(1, A(30, 14, 62, al));
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.moveTo(0, a0[0]);
+      for (j = 1; j < NX; j++) ctx.lineTo(j * STEP, a0[j]);
+      for (j = NX - 1; j >= 0; j--) ctx.lineTo(j * STEP, a1[j]);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 2. ship contact shadow + reflection
+    drawReflection(t, pose);
+
+    // 3. crest highlights with the sun-glitter column
+    var q = Math.max(SC, 0.6);
+    for (i = 0; i <= NL; i++) {
+      if (wyb[i] > H + 24) break;
+      var s = ws[i], arr = wy[i], id = i - F;
+      var far = (0.3 + 0.7 * smooth(0, 0.22, s)) * smooth(0, 0.04, s);
+      var hw = SR * 0.8 + s * 0.13 * W;
+      var base = mixc([255, 168, 108], [158, 136, 214], smooth(0, 0.8, s));
+      var mid = mixc(base, GOLD, 0.55);
+      var ab = (0.28 * (1 - s) + 0.055) * far;
+      var ac = (0.92 - 0.38 * s) * far;
+      var cg = ctx.createLinearGradient(0, 0, W, 0);
+      cg.addColorStop(0, AC(base, ab));
+      cg.addColorStop(P(SX - 2.3 * hw), AC(base, ab));
+      cg.addColorStop(P(SX - 0.95 * hw), AC(mid, (ab + ac) * 0.5));
+      cg.addColorStop(P(SX), AC(GOLD, ac));
+      cg.addColorStop(P(SX + 0.95 * hw), AC(mid, (ab + ac) * 0.5));
+      cg.addColorStop(P(SX + 2.3 * hw), AC(base, ab));
+      cg.addColorStop(1, AC(base, ab));
+
+      ctx.beginPath();
+      ctx.moveTo(0, arr[0]);
+      for (j = 1; j < NX; j++) ctx.lineTo(j * STEP, arr[j]);
+      ctx.lineWidth = (0.6 + 1.7 * s) * q;
+      ctx.strokeStyle = cg;
+      ctx.stroke();
+
+      if (s > 0.015) {
+        var k = 0.95 * far;
+        var sg = ctx.createLinearGradient(0, 0, W, 0);
+        sg.addColorStop(0, AC(SPARK, 0));
+        sg.addColorStop(P(SX - 1.7 * hw), AC(SPARK, 0));
+        sg.addColorStop(P(SX - 0.6 * hw), AC(SPARK, 0.45 * k));
+        sg.addColorStop(P(SX), AC(SPARK, k));
+        sg.addColorStop(P(SX + 0.6 * hw), AC(SPARK, 0.45 * k));
+        sg.addColorStop(P(SX + 1.7 * hw), AC(SPARK, 0));
+        sg.addColorStop(1, AC(SPARK, 0));
+        ctx.setLineDash([(3 + 16 * s) * q, (5 + 26 * s) * q * (0.7 + 0.6 * hash(id + 7))]);
+        ctx.lineDashOffset = -(t * (7 + 34 * s) * (0.6 + 0.8 * hash(id + 2)) + hash(id) * 200);
+        ctx.lineWidth = (1.0 + 2.6 * s) * q;
+        ctx.strokeStyle = sg;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // 4. twinkling glints
+    for (i = 0; i < 150; i++) {
+      var r1 = hash(i * 1.37 + 1), r2 = hash(i * 2.11 + 5), r3 = hash(i * 3.7 + 9), r4 = hash(i * 5.3 + 2);
+      var gs = Math.pow(r1, 1.6) * 0.98 + 0.01;
+      var gy = HZ + SEA * gs * gs;
+      var ghw = SR * 0.8 + gs * 0.13 * W;
+      var gx = SX + (r2 + r3 - 1) * ghw * 1.1 + Math.sin(t * 0.4 + r4 * 9) * ghw * 0.05;
+      var tw = Math.sin(t * (1.2 + 2.2 * r3) + r4 * TAU);
+      if (tw < 0.2) continue;
+      var edge = 1 - clamp(Math.abs(gx - SX) / (ghw * 1.2), 0, 1);
+      var ga = Math.pow((tw - 0.2) / 0.8, 2) * (0.9 - 0.5 * gs) * edge;
+      if (ga < 0.02) continue;
+      var gw = (2 + 12 * gs) * q * (0.6 + r2 * 0.8), gh = (0.8 + 1.6 * gs) * q;
+      gy += Math.sin(gx * 0.03 + t * 2 + r4 * 6) * q * (0.3 + 3 * gs * gs);
+      ctx.fillStyle = AC(SPARK, ga);
+      ctx.fillRect(gx - gw / 2, gy - gh / 2, gw, gh);
+    }
+    ctx.restore();
+  }
+
+  // ---- ship pose and reflection --------------------------------------------
+  function shipPose(t) {
+    var k = Math.max(U / 34, 0.3);
+    var wyc = SHIP_Y + (Math.sin(t * 0.95) * 0.05 + Math.sin(t * 1.9 + 1.3) * 0.025) * U;
+    return {
+      roll: Math.sin(t * 0.8 + 0.4) * 0.017 + Math.sin(t * 1.55 + 2.0) * 0.007,
+      waterY: wyc,
+      k: k,
+      wl: function (x) {
+        return wyc + (Math.sin(x * 0.09 / k + t * 2.4) * 1.5 + Math.sin(x * 0.21 / k - t * 1.7) * 0.9) * k;
+      }
+    };
+  }
+
+  function drawReflection(t, pose) {
+    var spr = shipSprite, k = pose.k;
+    // contact shadow
+    ctx.save();
+    ctx.translate(SHIP_X, pose.waterY + 2 * k);
+    ctx.scale(1, 0.09);
+    var sh = ctx.createRadialGradient(0, 0, 0, 0, 0, 6.5 * U);
+    sh.addColorStop(0, A(10, 5, 25, 0.55));
+    sh.addColorStop(1, A(10, 5, 25, 0));
+    ctx.fillStyle = sh;
+    ctx.beginPath(); ctx.arc(0, 0, 6.5 * U, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    var RS = 0.82, stepPx = 2;
+    var maxLen = Math.min(10.8 * U * RS, H - pose.waterY + 4);
+    if (maxLen <= 4) return;
+    var oyDev = OY * U * DPR, srcStepDev = stepPx * DPR / RS;
+    var sinRoll = Math.sin(pose.roll);
+    ctx.save();
+    for (var d = 0; d < maxLen; d += stepPx) {
+      var srcY = oyDev - ((d + stepPx) / RS) * DPR;
+      if (srcY < 0) break;
+      var f = d / maxLen;
+      var shift = (Math.sin(d * 0.11 + t * 1.8) + 0.6 * Math.sin(d * 0.047 - t * 1.2 + 1.7)) * (0.7 + 3.2 * f) * k + d * sinRoll / RS;
+      ctx.globalAlpha = 0.62 * Math.pow(1 - f, 1.4);
+      ctx.drawImage(spr.c, 0, srcY, spr.c.width, srcStepDev, SHIP_X - OX * U + shift, pose.waterY - 2 + d, spr.w, stepPx);
+    }
+    ctx.restore();
+  }
+
+  function renderShipSprite(t) {
+    var spr = shipSprite;
+    spr.g.clearRect(0, 0, spr.w, spr.h);
+    spr.g.save();
+    spr.g.translate(OX * U, OY * U);
+    spr.g.scale(U, U);
+    drawShipLocal(spr.g, t);
+    spr.g.restore();
+  }
+
+  function blitShip(pose) {
+    var spr = shipSprite;
+    ctx.save();
+    var x0 = SHIP_X - 8 * U, x1 = SHIP_X + 9 * U;
+    ctx.beginPath();
+    ctx.moveTo(x0, pose.waterY - 14 * U);
+    ctx.lineTo(x1, pose.waterY - 14 * U);
+    for (var x = x1; x >= x0; x -= 4) ctx.lineTo(x, pose.wl(x));
+    ctx.closePath();
+    ctx.clip();
+    ctx.translate(SHIP_X, pose.waterY);
+    ctx.rotate(pose.roll);
+    ctx.drawImage(spr.c, -OX * U, -OY * U, spr.w, spr.h);
+    ctx.restore();
+  }
+
+  function drawWake(t, pose) {
+    var k = pose.k, sternX = SHIP_X - 5.1 * U, bowX = SHIP_X + 4.6 * U, i, j, x;
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // foam hugging the waterline
+    ctx.beginPath();
+    ctx.moveTo(bowX, pose.wl(bowX) + 1.2 * k);
+    for (x = bowX; x >= sternX; x -= 6) ctx.lineTo(x, pose.wl(x) + 1.2 * k);
+    ctx.setLineDash([10 * k, 6 * k]);
+    ctx.lineDashOffset = t * 18 * k;
+    ctx.lineWidth = 1.7 * k;
+    ctx.strokeStyle = A(255, 225, 200, 0.5);
+    ctx.stroke();
+
+    // dark water line under the hull
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(bowX, pose.wl(bowX) + 3 * k);
+    for (x = bowX; x >= sternX; x -= 6) ctx.lineTo(x, pose.wl(x) + 3 * k);
+    ctx.lineWidth = 2.2 * k;
+    ctx.strokeStyle = A(14, 8, 30, 0.28);
+    ctx.stroke();
+
+    // stern wake
+    for (i = 0; i < 4; i++) {
+      var len = (6 + i * 1.7) * U;
+      var g = ctx.createLinearGradient(sternX, 0, sternX - len, 0);
+      g.addColorStop(0, A(255, 225, 205, 0.55));
+      g.addColorStop(1, A(255, 225, 205, 0));
+      ctx.beginPath();
+      for (j = 0; j <= 24; j++) {
+        var f = j / 24;
+        var px = sternX - len * f;
+        var py = pose.waterY + (1.5 + i * 2.6) * k + Math.sin(f * 9 + t * 1.8 + i * 1.9) * (0.6 + f * 1.6 + i * 0.3) * k;
+        if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.setLineDash([(5 + i * 2) * k, (7 + i) * k]);
+      ctx.lineDashOffset = t * (16 + i * 3) * k;
+      ctx.lineWidth = (1.4 + i * 0.3) * k;
+      ctx.strokeStyle = g;
+      ctx.stroke();
+    }
+
+    // bow splash
+    ctx.setLineDash([]);
+    for (i = 0; i < 3; i++) {
+      var wb = pose.wl(bowX);
+      ctx.beginPath();
+      ctx.moveTo(bowX + 0.3 * U, wb + 0.5 * k);
+      ctx.quadraticCurveTo(bowX + (1.0 + 0.4 * i) * U, wb + (0.1 + 0.18 * i) * U, bowX + (1.9 + 0.5 * i) * U, wb + (0.3 + 0.2 * i) * U + Math.sin(t * 2.2 + i) * k);
+      ctx.lineWidth = (1.6 - i * 0.2) * k;
+      ctx.strokeStyle = A(255, 238, 220, 0.5 * (0.7 + 0.3 * Math.sin(t * 3 + i)));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---- the ship (drawn in ship units: x right, y up is negative, 0 = waterline)
+  function fillSailShade(g, x0, x1, yT, yB, dim) {
+    var gr = g.createLinearGradient(x0, 0, x1, 0);
+    gr.addColorStop(0, '#6a3a64');
+    gr.addColorStop(0.34, '#b8607a');
+    gr.addColorStop(0.68, '#e8956f');
+    gr.addColorStop(0.92, '#fbc48c');
+    gr.addColorStop(1, '#ffdca0');
+    g.fillStyle = gr;
+    g.fill();
+    var vg = g.createLinearGradient(0, yT, 0, yB);
+    vg.addColorStop(0, A(52, 16, 62, 0.36 + dim));
+    vg.addColorStop(0.3, A(52, 16, 62, 0.06 + dim * 0.6));
+    vg.addColorStop(0.72, A(52, 16, 62, dim * 0.3));
+    vg.addColorStop(1, A(40, 12, 50, 0.14 + dim * 0.5));
+    g.fillStyle = vg;
+    g.fill();
+    g.lineWidth = 0.028;
+    g.strokeStyle = 'rgba(52,16,58,0.6)';
+    g.stroke();
+  }
+
+  function squareSail(g, t, cx, yT, yB, wT, wB, bulge, dim, ph) {
+    var b = bulge * (1 + 0.16 * Math.sin(t * 1.25 + ph));
+    var h = yB - yT, hT = wT / 2, hB = wB / 2, my = (yT + yB) / 2;
+    g.beginPath();
+    g.moveTo(cx - hT, yT);
+    g.lineTo(cx + hT, yT);
+    g.quadraticCurveTo(cx + (hT + hB) / 2 + b * 1.35, my, cx + hB, yB);
+    g.quadraticCurveTo(cx + b * 0.3, yB - h * 0.13, cx - hB, yB);
+    g.quadraticCurveTo(cx - (hT + hB) / 2 - b * 0.35, my, cx - hT, yT);
+    g.closePath();
+    fillSailShade(g, cx - hB, cx + hB + b * 1.4, yT, yB, dim);
+
+    g.save();
+    g.clip();
+    g.lineWidth = 0.016;
+    g.strokeStyle = 'rgba(70,24,72,0.22)';
+    for (var i = 0; i < 4; i++) {
+      var f = -0.375 + i * 0.25;
+      var xt = cx + wT * f, xb = cx + wB * f;
+      g.beginPath();
+      g.moveTo(xt, yT);
+      g.quadraticCurveTo((xt + xb) / 2 + b * (1 - Math.abs(f) * 1.2), my, xb, yB);
+      g.stroke();
+    }
+    g.strokeStyle = 'rgba(70,24,72,0.18)';
+    g.beginPath();
+    g.moveTo(cx - hT, yT + h * 0.42);
+    g.quadraticCurveTo(cx + b * 0.9, yT + h * 0.46, cx + hT + b * 0.6, yT + h * 0.42);
+    g.stroke();
+    g.restore();
+
+    // yard
+    g.beginPath();
+    g.moveTo(cx - hT - 0.2, yT);
+    g.lineTo(cx + hT + 0.2, yT);
+    g.lineWidth = 0.07;
+    g.strokeStyle = '#26151f';
+    g.stroke();
+  }
+
+  function jib(g, t, hx, hy, tx, ty, cx, cy, bulge, dim, ph) {
+    var b = bulge * (1 + 0.18 * Math.sin(t * 1.4 + ph));
+    g.beginPath();
+    g.moveTo(hx, hy);
+    g.lineTo(tx, ty);
+    g.quadraticCurveTo((tx + cx) / 2, (ty + cy) / 2 - 0.12, cx, cy);
+    g.quadraticCurveTo((cx + hx) / 2 - b, (cy + hy) / 2, hx, hy);
+    g.closePath();
+    fillSailShade(g, Math.min(hx, cx) - b, Math.max(tx, hx), hy, cy, dim);
+  }
+
+  function mastLine(g, x, y0, y1, w) {
+    g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1);
+    g.lineWidth = w; g.strokeStyle = '#27151f'; g.stroke();
+    g.beginPath(); g.moveTo(x + w * 0.38, y0 - 0.05); g.lineTo(x + w * 0.38, y1);
+    g.lineWidth = w * 0.22; g.strokeStyle = 'rgba(255,190,120,0.5)'; g.stroke();
+  }
+
+  function thinLine(g, x0, y0, x1, y1, w, col) {
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1);
+    g.lineWidth = w; g.strokeStyle = col; g.stroke();
+  }
+
+  function pennant(g, t, x, y, len, wid, col, ph) {
+    var n = 7, i, f;
+    g.beginPath();
+    g.moveTo(x, y);
+    for (i = 1; i <= n; i++) {
+      f = i / n;
+      g.lineTo(x + len * f, y + Math.sin(t * 5.5 - f * 5 + ph) * 0.09 * f * len);
+    }
+    for (i = n; i >= 0; i--) {
+      f = i / n;
+      g.lineTo(x + len * f, y + wid * (1 - f * 0.8) + Math.sin(t * 5.5 - f * 5 + ph) * 0.09 * f * len);
+    }
+    g.closePath();
+    g.fillStyle = col;
+    g.fill();
+  }
+
+  function hullPath(g) {
+    g.beginPath();
+    g.moveTo(-5.0, -2.15);
+    g.lineTo(-3.25, -2.15);
+    g.lineTo(-3.25, -1.55);
+    g.quadraticCurveTo(0, -1.05, 3.0, -1.5);
+    g.lineTo(3.0, -1.85);
+    g.lineTo(4.55, -1.8);
+    g.quadraticCurveTo(5.05, -1.75, 5.3, -1.95);
+    g.quadraticCurveTo(5.25, -0.5, 3.7, 0.62);
+    g.lineTo(-3.8, 0.62);
+    g.quadraticCurveTo(-5.3, 0.4, -5.25, -0.9);
+    g.quadraticCurveTo(-5.3, -1.6, -5.0, -2.15);
+    g.closePath();
+  }
+
+  function waleY(x) {
+    var u = clamp((x + 5.4) / 10.8, 0, 1), v = 1 - u;
+    return v * v * -1.22 + 2 * v * u * -0.7 + u * u * -1.12;
+  }
+
+  function drawShipLocal(g, t) {
+    var i;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    // spanker (gaff sail on the mizzen)
+    var sb = 0.18 * (1 + 0.15 * Math.sin(t * 1.3 + 0.7));
+    g.beginPath();
+    g.moveTo(-3.08, -4.85);
+    g.lineTo(-4.4, -4.1);
+    g.quadraticCurveTo(-5.05 - sb, -3.3, -4.95, -2.5);
+    g.quadraticCurveTo(-4.0, -2.34, -3.08, -2.5);
+    g.closePath();
+    fillSailShade(g, -5.2, -3.0, -4.85, -2.4, 0.1);
+    // gaff topsail
+    g.beginPath();
+    g.moveTo(-3.08, -6.2);
+    g.quadraticCurveTo(-3.7 - sb, -5.4, -4.3, -4.5);
+    g.quadraticCurveTo(-3.7, -4.5, -3.08, -4.75);
+    g.closePath();
+    fillSailShade(g, -4.4, -3.0, -6.2, -4.5, 0.04);
+    thinLine(g, -3.05, -2.5, -4.95, -2.5, 0.06, '#26151f');
+    thinLine(g, -3.05, -4.85, -4.4, -4.1, 0.05, '#26151f');
+
+    // jibs
+    jib(g, t, 3.35, -7.1, 6.95, -3.2, 3.7, -3.3, 0.16, 0.05, 0.4);
+    jib(g, t, 3.3, -5.5, 5.9, -2.5, 3.5, -2.6, 0.14, 0.14, 1.9);
+
+    // square sails: main then fore
+    var sails = [
+      [0, -3.35, -1.75, 3.5, 3.7, 0.30, 0.16, 0.0],
+      [0, -5.05, -3.45, 2.9, 3.2, 0.27, 0.10, 0.9],
+      [0, -6.65, -5.15, 2.25, 2.5, 0.23, 0.05, 1.7],
+      [0, -8.0, -6.75, 1.55, 1.75, 0.18, 0.0, 2.5],
+      [2.9, -3.3, -2.15, 2.9, 3.1, 0.26, 0.16, 0.4],
+      [2.9, -4.75, -3.4, 2.5, 2.7, 0.23, 0.10, 1.3],
+      [2.9, -6.05, -4.85, 2.0, 2.15, 0.20, 0.05, 2.1],
+      [2.9, -7.1, -6.15, 1.3, 1.45, 0.15, 0.0, 2.9]
+    ];
+    for (i = 0; i < sails.length; i++) {
+      var s = sails[i];
+      squareSail(g, t, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
+    }
+
+    // masts and bowsprit
+    mastLine(g, -3.0, -2.15, -6.4, 0.10);
+    mastLine(g, 0.0, -1.3, -9.4, 0.13);
+    mastLine(g, 2.9, -1.85, -8.0, 0.115);
+    thinLine(g, 4.6, -1.75, 7.05, -3.15, 0.11, '#27151f');
+
+    // hull
+    hullPath(g);
+    var hg = g.createLinearGradient(0, -2.2, 0, 0.7);
+    hg.addColorStop(0, '#5b3342');
+    hg.addColorStop(0.4, '#2d1927');
+    hg.addColorStop(1, '#0d0916');
+    g.fillStyle = hg;
+    g.fill();
+
+    g.save();
+    g.clip();
+    var wg = g.createLinearGradient(-5.3, 0, 5.3, 0);
+    wg.addColorStop(0, A(0, 0, 10, 0.28));
+    wg.addColorStop(0.5, A(255, 140, 90, 0));
+    wg.addColorStop(1, A(255, 150, 90, 0.38));
+    g.fillStyle = wg;
+    g.fillRect(-5.5, -2.3, 11, 3.1);
+    var tg = g.createLinearGradient(0, -2.2, 0, -1.0);
+    tg.addColorStop(0, A(255, 170, 110, 0.22));
+    tg.addColorStop(1, A(255, 170, 110, 0));
+    g.fillStyle = tg;
+    g.fillRect(-5.5, -2.3, 11, 1.4);
+
+    // gold wale stripe and plank line
+    var xs, y;
+    g.beginPath();
+    for (xs = -5.4; xs <= 5.41; xs += 0.54) { y = waleY(xs); if (xs < -5.3) g.moveTo(xs, y); else g.lineTo(xs, y); }
+    g.lineWidth = 0.09; g.strokeStyle = '#dba94c'; g.stroke();
+    g.beginPath();
+    for (xs = -5.4; xs <= 5.41; xs += 0.54) { y = waleY(xs) + 0.12; if (xs < -5.3) g.moveTo(xs, y); else g.lineTo(xs, y); }
+    g.lineWidth = 0.04; g.strokeStyle = 'rgba(0,0,0,0.5)'; g.stroke();
+    g.beginPath();
+    for (xs = -5.4; xs <= 5.41; xs += 0.54) { y = waleY(xs) + 0.58; if (xs < -5.3) g.moveTo(xs, y); else g.lineTo(xs, y); }
+    g.lineWidth = 0.03; g.strokeStyle = 'rgba(0,0,0,0.3)'; g.stroke();
+
+    // lit ports
+    for (i = 0; i < 8; i++) {
+      var px = -3.5 + i * 0.98, py = waleY(px) + 0.36;
+      g.fillStyle = A(255, 200, 120, 0.5 + 0.15 * Math.sin(t * 3 + i * 1.7));
+      g.fillRect(px - 0.1, py - 0.07, 0.2, 0.14);
+    }
+    // stern windows
+    for (i = 0; i < 3; i++) {
+      var wx = -4.8 + i * 0.55;
+      g.fillStyle = A(255, 217, 144, 0.85 + 0.1 * Math.sin(t * 2.3 + i));
+      g.fillRect(wx - 0.16, -1.9, 0.32, 0.26);
+    }
+    g.restore();
+
+    // hull rim lights
+    g.beginPath();
+    g.moveTo(-5.0, -2.15);
+    g.lineTo(-3.25, -2.15);
+    g.lineTo(-3.25, -1.55);
+    g.quadraticCurveTo(0, -1.05, 3.0, -1.5);
+    g.lineTo(3.0, -1.85);
+    g.lineTo(4.55, -1.8);
+    g.quadraticCurveTo(5.05, -1.75, 5.3, -1.95);
+    g.lineWidth = 0.045; g.strokeStyle = 'rgba(255,190,120,0.6)'; g.stroke();
+    g.beginPath();
+    g.moveTo(5.3, -1.95);
+    g.quadraticCurveTo(5.25, -0.5, 3.7, 0.62);
+    g.lineWidth = 0.05; g.strokeStyle = 'rgba(255,170,100,0.5)'; g.stroke();
+
+    // rigging
+    var rg = 'rgba(30,16,28,0.55)';
+    thinLine(g, 0, -5.6, -1.9, -1.4, 0.022, rg);
+    thinLine(g, 0, -5.6, -1.4, -1.4, 0.022, rg);
+    thinLine(g, 0, -5.6, 1.5, -1.4, 0.022, rg);
+    thinLine(g, 2.9, -5.0, 1.6, -1.75, 0.022, rg);
+    thinLine(g, 2.9, -5.0, 4.3, -1.8, 0.022, rg);
+    thinLine(g, -3.0, -4.4, -4.1, -2.15, 0.022, rg);
+    thinLine(g, -3.0, -4.4, -2.2, -1.55, 0.022, rg);
+    thinLine(g, 0, -8.9, 2.9, -7.9, 0.02, rg);
+    thinLine(g, -3.0, -6.3, 0, -8.5, 0.02, rg);
+    thinLine(g, 2.95, -7.6, 7.05, -3.15, 0.025, 'rgba(30,16,28,0.7)');
+    thinLine(g, 2.95, -5.9, 5.9, -2.5, 0.02, rg);
+    thinLine(g, 6.7, -2.95, 5.0, -0.9, 0.02, rg);
+
+    // pennants
+    pennant(g, t, 0.05, -9.4, 1.5, 0.3, '#d4403f', 0);
+    pennant(g, t, 2.95, -8.0, 1.1, 0.24, '#e8b64a', 1.4);
+    pennant(g, t, -2.95, -6.4, 0.9, 0.2, '#d4403f', 2.7);
+
+    // stern lantern with flickering glow
+    thinLine(g, -5.16, -2.1, -5.16, -2.85, 0.05, '#26151f');
+    var fl = 0.85 + 0.15 * Math.sin(t * 8.3) + 0.05 * Math.sin(t * 13.1);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    var lg = g.createRadialGradient(-5.16, -2.95, 0, -5.16, -2.95, 1.1);
+    lg.addColorStop(0, A(255, 214, 130, 0.85 * fl));
+    lg.addColorStop(0.25, A(255, 170, 80, 0.35 * fl));
+    lg.addColorStop(1, A(255, 140, 60, 0));
+    g.fillStyle = lg;
+    g.fillRect(-6.4, -4.2, 2.5, 2.5);
+    g.restore();
+    g.fillStyle = '#ffe3a0';
+    g.beginPath(); g.arc(-5.16, -2.95, 0.09, 0, TAU); g.fill();
+  }
+
+  // ---- frame ---------------------------------------------------------------
+  function render(t) {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(backdrop.c, 0, 0, W, H);
+
+    drawStars(t);
+    drawClouds(t);
+    drawRays(t);
+    drawBirds(t);
+
+    var pose = shipPose(t);
+    renderShipSprite(t);   // must be fresh before the reflection samples it
+
+    drawSea(t, pose);
+    blitShip(pose);
+    drawWake(t, pose);
+
+    // atmospheric bloom from the sun over everything
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    var pulse = 0.92 + 0.08 * Math.sin(t * 0.6);
+    var gl = ctx.createRadialGradient(SX, SY, 0, SX, SY, W * 0.6);
+    gl.addColorStop(0, A(255, 200, 130, 0.28 * pulse));
+    gl.addColorStop(0.3, A(255, 150, 100, 0.12 * pulse));
+    gl.addColorStop(1, A(255, 120, 100, 0));
+    ctx.fillStyle = gl;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    ctx.drawImage(vignette.c, 0, 0, W, H);
+  }
+
+  function frame(ts) {
+    if (t0 === null) t0 = ts;
+    curT = (ts - t0) / 1000;
+    render(curT);
+    window.requestAnimationFrame(frame);
+  }
+
+  function onResize() { resize(); render(curT); }
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+
+  resize();
+  render(0);
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sunset Sail</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let animationTime = 0;
+
+    // Handle canvas resize
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Draw sky gradient
+    function drawSky() {
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
+      skyGradient.addColorStop(0, '#FFB366');      // Light orange at top
+      skyGradient.addColorStop(0.3, '#FF8C42');    // Deeper orange
+      skyGradient.addColorStop(0.6, '#E63946');    // Red-orange
+      skyGradient.addColorStop(1, '#A23B72');      // Purple-red at horizon
+
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height * 0.6);
+    }
+
+    // Draw sun
+    function drawSun() {
+      const sunX = canvas.width * 0.75;
+      const sunY = canvas.height * 0.5;
+      const sunRadius = canvas.height * 0.08;
+
+      // Sun glow
+      const glowGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunRadius * 2);
+      glowGradient.addColorStop(0, 'rgba(255, 200, 100, 0.3)');
+      glowGradient.addColorStop(1, 'rgba(255, 140, 0, 0)');
+      ctx.fillStyle = glowGradient;
+      ctx.fillRect(sunX - sunRadius * 2, sunY - sunRadius * 2, sunRadius * 4, sunRadius * 4);
+
+      // Sun itself
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Sun reflection in water
+      ctx.globalAlpha = 0.3;
+      const reflectionGradient = ctx.createLinearGradient(sunX - sunRadius * 0.5, sunY, sunX + sunRadius * 0.5, canvas.height);
+      reflectionGradient.addColorStop(0, '#FFD700');
+      reflectionGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+      ctx.fillStyle = reflectionGradient;
+      ctx.fillRect(sunX - sunRadius * 0.5, sunY, sunRadius, canvas.height - sunY);
+      ctx.globalAlpha = 1;
+    }
+
+    // Draw animated waves
+    function drawWaves(offset) {
+      const waterStartY = canvas.height * 0.6;
+      const waveHeight = canvas.height * 0.05;
+      const waveLength = canvas.width * 0.15;
+
+      ctx.fillStyle = '#1B4965';
+      ctx.fillRect(0, waterStartY, canvas.width, canvas.height);
+
+      // Draw multiple wave layers
+      for (let layer = 0; layer < 3; layer++) {
+        ctx.strokeStyle = `rgba(100, 180, 220, ${0.5 - layer * 0.15})`;
+        ctx.lineWidth = 2 + layer;
+
+        ctx.beginPath();
+        for (let x = 0; x <= canvas.width; x += 10) {
+          const y = waterStartY + 20 + layer * 15 +
+            Math.sin((x + offset + layer * 500) / waveLength * Math.PI * 2) * (waveHeight - layer * 5);
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Wave highlights
+      ctx.strokeStyle = 'rgba(180, 220, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x <= canvas.width; x += 10) {
+        const y = waterStartY + 8 + Math.sin((x + offset + 1000) / (waveLength * 0.8) * Math.PI * 2) * (waveHeight * 0.6);
+        if (x === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Draw sailing ship
+    function drawShip(waveOffset) {
+      const shipX = canvas.width * 0.35;
+      const baseWaterY = canvas.height * 0.6;
+
+      // Calculate ship's vertical position based on wave
+      const shipWaveY = Math.sin((shipX + waveOffset) / (canvas.width * 0.15) * Math.PI * 2) * (canvas.height * 0.025);
+      const shipY = baseWaterY - canvas.height * 0.08 + shipWaveY;
+
+      // Ship shadow/reflection
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(shipX, baseWaterY + 5, canvas.width * 0.06, canvas.height * 0.02, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Hull
+      ctx.fillStyle = '#8B4513';
+      ctx.beginPath();
+      const hullWidth = canvas.width * 0.08;
+      const hullHeight = canvas.height * 0.06;
+      ctx.ellipse(shipX, shipY, hullWidth * 0.6, hullHeight * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hull detail (lighter stripe)
+      ctx.fillStyle = '#A0522D';
+      ctx.beginPath();
+      ctx.ellipse(shipX, shipY - hullHeight * 0.15, hullWidth * 0.55, hullHeight * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Mast
+      const mastX = shipX;
+      const mastTopY = shipY - canvas.height * 0.15;
+      ctx.strokeStyle = '#D4A373';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mastX, shipY - hullHeight * 0.4);
+      ctx.lineTo(mastX, mastTopY);
+      ctx.stroke();
+
+      // Boom (lower sail support)
+      ctx.strokeStyle = '#D4A373';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mastX, shipY);
+      ctx.lineTo(shipX + canvas.width * 0.04, shipY + canvas.height * 0.04);
+      ctx.stroke();
+
+      // Main sail (animated)
+      const sailSwing = Math.sin(animationTime / 1000 * Math.PI) * 0.1;
+      ctx.fillStyle = 'rgba(240, 200, 150, 0.9)';
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(mastX + sailSwing, shipY - hullHeight * 0.4);
+      ctx.lineTo(mastX + sailSwing + canvas.width * 0.05, shipY - hullHeight * 0.4);
+      ctx.lineTo(mastX + sailSwing + canvas.width * 0.03, mastTopY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Jib sail (front sail, also animated with offset)
+      const jibSwing = Math.sin(animationTime / 1000 * Math.PI + Math.PI * 0.3) * 0.08;
+      ctx.fillStyle = 'rgba(220, 180, 130, 0.9)';
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(mastX + jibSwing, shipY - hullHeight * 0.2);
+      ctx.lineTo(mastX + jibSwing - canvas.width * 0.04, shipY - hullHeight * 0.2);
+      ctx.lineTo(mastX + jibSwing - canvas.width * 0.03, mastTopY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Sail details/folds
+      ctx.strokeStyle = 'rgba(180, 140, 80, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mastX + sailSwing + canvas.width * 0.02, shipY - canvas.height * 0.08);
+      ctx.quadraticCurveTo(mastX + sailSwing + canvas.width * 0.035, shipY - canvas.height * 0.05, mastX + sailSwing + canvas.width * 0.04, shipY + canvas.height * 0.01);
+      ctx.stroke();
+
+      // Flag at masthead
+      const flagX = mastX;
+      const flagY = mastTopY - canvas.height * 0.01;
+      ctx.fillStyle = '#FF6B6B';
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(flagX, flagY);
+      ctx.lineTo(flagX + canvas.width * 0.02, flagY - canvas.height * 0.01);
+      ctx.lineTo(flagX + canvas.width * 0.015, flagY + canvas.height * 0.008);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Animation loop
+    function animate() {
+      animationTime += 16; // Approximate 60fps
+
+      // Clear canvas
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw scene
+      drawSky();
+      drawWaves(animationTime * 0.05);
+      drawSun();
+      drawShip(animationTime * 0.05);
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

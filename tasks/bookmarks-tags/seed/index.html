@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bookmarks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; max-width: 40rem; }
+    .bookmarks { list-style: none; padding: 0; }
+    .bookmarks li { padding: 0.3rem 0; border-bottom: 1px solid #ddd; }
+    .tag { background: #e7f5ff; border-radius: 999px; font-size: 0.8em; margin-left: 0.4rem; padding: 0.1rem 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Bookmarks</h1>
+  <form id="add">
+    <input name="url" type="url" placeholder="https://" required>
+    <input name="title" placeholder="Title" required>
+    <button>Add</button>
+  </form>
+  <input id="search" type="search" placeholder="Search" aria-label="Search">
+  <div id="list"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+{
+  "schema_version": 2,
+  "suite_id": "pilot-v1",
+  "notes": [
+    "DRAFT. Nothing here has been run. Confirm each harness with `check` and one `run --limit 1` before trusting it.",
+    "Logins: the entries below copy your real login files into each container, where the agent can read them. Prefer a second login made just for this (log in again with the harness's home pointed at a folder you keep for the benchmark) and point `credentials` at that file; then also set \"write_back_logins\": true so refreshed tokens are kept.",
+    "Model names are as listed by `pi --list-models` on 2026-10-05. Other harnesses may spell them differently: add harness_names.",
+    "codex is limited to the GPT model until a DeepSeek provider is configured for it (harness_args plus an API key in env).",
+    "Add the third model and the other harnesses (claude, omp, opencode, droid, hermes) once these two work.",
+    "price_per_mtok is empty, so list-price cost stays unknown until you fill it from the providers' price pages."
+  ],
+  "comparison": "controlled",
+  "seed": 20261005,
+  "repetitions": 3,
+  "budget": {
+    "timeout_seconds": 900,
+    "max_retries": 0
+  },
+  "models": [
+    {
+      "id": "gpt-6-1-sol",
+      "name": "gpt-6.1-sol",
+      "reasoning_effort": "medium",
+      "billing": "subscription",
+      "harness_names": {
+        "pi": "openai-codex/gpt-6.1-sol"
+      },
+      "price_per_mtok": null
+    },
+    {
+      "id": "deepseek-flash",
+      "name": "deepseek-flash",
+      "reasoning_effort": "medium",
+      "billing": "api",
+      "harness_names": {
+        "pi": "deepseek/deepseek-flash"
+      },
+      "price_per_mtok": null
+    }
+  ],
+  "modes": [
+    {
+      "id": "single",
+      "prompt_suffix": ""
+    }
+  ],
+  "tasks": [
+    {
+      "id": "md-preview",
+      "spec": "tasks/md-preview",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "kanban-undo",
+      "spec": "tasks/kanban-undo",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "expenses-csv",
+      "spec": "tasks/expenses-csv",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "checkout-refactor",
+      "spec": "tasks/checkout-refactor",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "bookmarks-tags",
+      "spec": "tasks/bookmarks-tags",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "todo-app",
+      "spec": "tasks/todo-app",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "tabs-keyboard",
+      "spec": "tasks/tabs-keyboard",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "log-report",
+      "spec": "tasks/log-report",
+      "seed_revision": null,
+      "evaluator_revision": null
+    },
+    {
+      "id": "pirate-ship-3d",
+      "spec": "tasks/pirate-ship-3d",
+      "seed_revision": null,
+      "evaluator_revision": null
+    }
+  ],
+  "harnesses": [
+    {
+      "id": "codex",
+      "adapter": "codex",
+      "version": null,
+      "credentials": [
+        "~/.codex/auth.json:.codex/auth.json"
+      ],
+      "models": [
+        "gpt-6-1-sol"
+      ]
+    },
+    {
+      "id": "pi",
+      "adapter": "pi",
+      "version": null,
+      "credentials": [
+        "~/.pi/agent/auth.json:.pi/agent/auth.json"
+      ]
+    }
+  ]
+}

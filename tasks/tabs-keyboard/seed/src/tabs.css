@@ -1,0 +1,10 @@
+body { font: 16px/1.45 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+main { max-width: 40rem; margin: 0 auto; }
+.tab-list { display: flex; gap: 0.25rem; border-bottom: 1px solid #c9c9c4; }
+.tab { font: inherit; padding: 0.5rem 0.9rem; border: 0; border-bottom: 3px solid transparent; background: none; color: inherit; cursor: pointer; }
+.tab.active { border-bottom-color: #2a78d6; font-weight: 600; }
+.tab:focus-visible, .panel:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+.panel { display: none; padding: 1rem 0.25rem; }
+.panel.open { display: block; }
+.tabs.small .tab { padding: 0.25rem 0.7rem; font-size: 0.9em; }
+label { display: block; margin: 0.5rem 0; }

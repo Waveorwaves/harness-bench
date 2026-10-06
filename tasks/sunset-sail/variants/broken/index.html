@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Ship</title></head>
+<body>
+<h1>Sunset ship</h1>
+<canvas id="c" width="300" height="150"></canvas>
+<script>
+// A deliberately faulty attempt: a small fixed canvas, a still picture and a script error.
+const g = document.getElementById('c').getContext('2d');
+g.fillStyle = '#f2a65a';
+g.fillRect(0, 0, 300, 90);
+g.fillStyle = '#2b5c8a';
+g.fillRect(0, 90, 300, 60);
+g.fillStyle = '#4a2d1a';
+g.fillRect(110, 80, 80, 14);
+drawSails(g);
+</script>
+</body>
+</html>

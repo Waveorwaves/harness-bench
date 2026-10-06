@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "suite_id": "demo-showcase-with-sample-solutions",
+  "notes": [
+    "Replays stored sample solutions through the real pipeline with the fake agent, to exercise capture, judging and ranking.",
+    "The entries are not harnesses and the results are not measurements. See tasks/<id>/variants/README.md for where each sample came from."
+  ],
+  "comparison": "controlled",
+  "seed": 11,
+  "repetitions": 1,
+  "budget": {"timeout_seconds": 30, "max_retries": 0},
+  "models": [{"id": "none", "name": "none", "reasoning_effort": null}],
+  "modes": [{"id": "single", "prompt_suffix": ""}],
+  "tasks": [
+    {"id": "sunset-sail", "spec": "tasks/sunset-sail", "seed_revision": null, "evaluator_revision": null},
+    {"id": "pirate-ship-3d", "spec": "tasks/pirate-ship-3d", "seed_revision": null, "evaluator_revision": null}
+  ],
+  "harnesses": [
+    {"id": "sample-reference", "adapter": "mock", "args": ["reference"], "version": null},
+    {"id": "sample-small-model", "adapter": "mock", "args": ["variant", "small-model"], "version": null},
+    {"id": "sample-mid-model", "adapter": "mock", "args": ["variant", "mid-model"], "version": null},
+    {"id": "sample-large-model", "adapter": "mock", "args": ["variant", "large-model"], "version": null, "tasks": ["pirate-ship-3d"]},
+    {"id": "sample-plain", "adapter": "mock", "args": ["variant", "plain"], "version": null, "tasks": ["sunset-sail"]},
+    {"id": "sample-faulty", "adapter": "mock", "args": ["variant", "broken"], "version": null, "tasks": ["sunset-sail"]}
+  ]
+}

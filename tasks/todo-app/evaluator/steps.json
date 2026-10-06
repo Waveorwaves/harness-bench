@@ -1,0 +1,215 @@
+[
+ {
+  "do": "eval",
+  "name": "installed",
+  "script": "window.__snap = () => {\n  const seen = (element) => element.getClientRects().length > 0;\n  const items = [...document.querySelectorAll('#todos > li')].filter(seen);\n  const first = (li, selector) => li.querySelector(selector);\n  const position = (li, selector) => [...li.querySelectorAll('*')].indexOf(first(li, selector));\n  return {\n    titles: items.map((li) => first(li, '.title') ? first(li, '.title').textContent.trim() : null),\n    spans: items.map((li) => Boolean(first(li, 'span.title'))),\n    done: items.map((li) => li.classList.contains('done')),\n    checked: items.map((li) => first(li, 'input[type=checkbox]') ? first(li, 'input[type=checkbox]').checked : null),\n    labels: items.map((li) => first(li, 'button.delete') ? first(li, 'button.delete').getAttribute('aria-label') : null),\n    ordered: items.map((li) => { const order = ['input[type=checkbox]', '.title', 'button.delete'].map((s) => position(li, s)); return order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2]; }),\n    count: document.getElementById('count') ? document.getElementById('count').textContent.trim() : null,\n    pressed: ['all', 'active', 'done'].map((name) => { const b = document.querySelector('[data-filter=\"' + name + '\"]'); return b ? b.getAttribute('aria-pressed') : null; }),\n    clearDisabled: document.getElementById('clear-done') ? document.getElementById('clear-done').disabled : null,\n    input: document.querySelector('#new-todo input') ? document.querySelector('#new-todo input').value : null,\n    inputFocused: document.activeElement === document.querySelector('#new-todo input'),\n    editing: (() => { const box = [...document.querySelectorAll('#todos input.edit')].find(seen); return box ? box.value : null; })(),\n    editFocused: Boolean(document.activeElement && document.activeElement.classList.contains('edit')),\n    markup: document.querySelectorAll('#todos b').length,\n  };\n}, true"
+ },
+ {
+  "do": "eval",
+  "name": "start",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "type",
+  "selector": "#new-todo input",
+  "text": "Buy milk"
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "eval",
+  "name": "one",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "type",
+  "selector": "#new-todo input",
+  "text": "  Walk the dog  "
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "type",
+  "selector": "#new-todo input",
+  "text": "   "
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "type",
+  "selector": "#new-todo input",
+  "text": "<b>bold</b>"
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "eval",
+  "name": "three",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#todos > li:nth-child(2) input[type=checkbox]"
+ },
+ {
+  "do": "eval",
+  "name": "ticked",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "[data-filter=\"active\"]"
+ },
+ {
+  "do": "eval",
+  "name": "active",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "[data-filter=\"done\"]"
+ },
+ {
+  "do": "eval",
+  "name": "done",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "[data-filter=\"all\"]"
+ },
+ {
+  "do": "eval",
+  "name": "all",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "dblclick",
+  "selector": "#todos > li:nth-child(1) .title"
+ },
+ {
+  "do": "eval",
+  "name": "editing",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "type",
+  "selector": "#todos input.edit",
+  "text": "  Buy oat milk ",
+  "replace": true
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "eval",
+  "name": "edited",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "dblclick",
+  "selector": "#todos > li:nth-child(3) .title"
+ },
+ {
+  "do": "type",
+  "selector": "#todos input.edit",
+  "text": "changed my mind",
+  "replace": true
+ },
+ {
+  "do": "press",
+  "key": "Escape"
+ },
+ {
+  "do": "eval",
+  "name": "cancelled",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "dblclick",
+  "selector": "#todos > li:nth-child(3) .title"
+ },
+ {
+  "do": "clear",
+  "selector": "#todos input.edit"
+ },
+ {
+  "do": "press",
+  "key": "Enter"
+ },
+ {
+  "do": "eval",
+  "name": "emptied",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#todos > li:nth-child(2) input[type=checkbox]"
+ },
+ {
+  "do": "eval",
+  "name": "unticked",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#todos > li:nth-child(2) input[type=checkbox]"
+ },
+ {
+  "do": "click",
+  "selector": "[data-filter=\"done\"]"
+ },
+ {
+  "do": "reload"
+ },
+ {
+  "do": "eval",
+  "name": "installed",
+  "script": "window.__snap = () => {\n  const seen = (element) => element.getClientRects().length > 0;\n  const items = [...document.querySelectorAll('#todos > li')].filter(seen);\n  const first = (li, selector) => li.querySelector(selector);\n  const position = (li, selector) => [...li.querySelectorAll('*')].indexOf(first(li, selector));\n  return {\n    titles: items.map((li) => first(li, '.title') ? first(li, '.title').textContent.trim() : null),\n    spans: items.map((li) => Boolean(first(li, 'span.title'))),\n    done: items.map((li) => li.classList.contains('done')),\n    checked: items.map((li) => first(li, 'input[type=checkbox]') ? first(li, 'input[type=checkbox]').checked : null),\n    labels: items.map((li) => first(li, 'button.delete') ? first(li, 'button.delete').getAttribute('aria-label') : null),\n    ordered: items.map((li) => { const order = ['input[type=checkbox]', '.title', 'button.delete'].map((s) => position(li, s)); return order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2]; }),\n    count: document.getElementById('count') ? document.getElementById('count').textContent.trim() : null,\n    pressed: ['all', 'active', 'done'].map((name) => { const b = document.querySelector('[data-filter=\"' + name + '\"]'); return b ? b.getAttribute('aria-pressed') : null; }),\n    clearDisabled: document.getElementById('clear-done') ? document.getElementById('clear-done').disabled : null,\n    input: document.querySelector('#new-todo input') ? document.querySelector('#new-todo input').value : null,\n    inputFocused: document.activeElement === document.querySelector('#new-todo input'),\n    editing: (() => { const box = [...document.querySelectorAll('#todos input.edit')].find(seen); return box ? box.value : null; })(),\n    editFocused: Boolean(document.activeElement && document.activeElement.classList.contains('edit')),\n    markup: document.querySelectorAll('#todos b').length,\n  };\n}, true"
+ },
+ {
+  "do": "eval",
+  "name": "reloaded",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#todos > li:nth-child(1) button.delete"
+ },
+ {
+  "do": "eval",
+  "name": "deleted",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#clear-done"
+ },
+ {
+  "do": "eval",
+  "name": "cleared",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "reload"
+ },
+ {
+  "do": "eval",
+  "name": "installed",
+  "script": "window.__snap = () => {\n  const seen = (element) => element.getClientRects().length > 0;\n  const items = [...document.querySelectorAll('#todos > li')].filter(seen);\n  const first = (li, selector) => li.querySelector(selector);\n  const position = (li, selector) => [...li.querySelectorAll('*')].indexOf(first(li, selector));\n  return {\n    titles: items.map((li) => first(li, '.title') ? first(li, '.title').textContent.trim() : null),\n    spans: items.map((li) => Boolean(first(li, 'span.title'))),\n    done: items.map((li) => li.classList.contains('done')),\n    checked: items.map((li) => first(li, 'input[type=checkbox]') ? first(li, 'input[type=checkbox]').checked : null),\n    labels: items.map((li) => first(li, 'button.delete') ? first(li, 'button.delete').getAttribute('aria-label') : null),\n    ordered: items.map((li) => { const order = ['input[type=checkbox]', '.title', 'button.delete'].map((s) => position(li, s)); return order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2]; }),\n    count: document.getElementById('count') ? document.getElementById('count').textContent.trim() : null,\n    pressed: ['all', 'active', 'done'].map((name) => { const b = document.querySelector('[data-filter=\"' + name + '\"]'); return b ? b.getAttribute('aria-pressed') : null; }),\n    clearDisabled: document.getElementById('clear-done') ? document.getElementById('clear-done').disabled : null,\n    input: document.querySelector('#new-todo input') ? document.querySelector('#new-todo input').value : null,\n    inputFocused: document.activeElement === document.querySelector('#new-todo input'),\n    editing: (() => { const box = [...document.querySelectorAll('#todos input.edit')].find(seen); return box ? box.value : null; })(),\n    editFocused: Boolean(document.activeElement && document.activeElement.classList.contains('edit')),\n    markup: document.querySelectorAll('#todos b').length,\n  };\n}, true"
+ },
+ {
+  "do": "eval",
+  "name": "reloaded_empty",
+  "script": "window.__snap()"
+ }
+]

@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "suite_id": "demo-with-fake-agents",
+  "comparison": "controlled",
+  "seed": 7,
+  "repetitions": 3,
+  "budget": {"timeout_seconds": 30, "max_retries": 0},
+  "models": [
+    {"id": "fake-small", "name": "fake-small", "reasoning_effort": null,
+     "price_per_mtok": {"input": 0.3, "cached_input": 0.03, "output": 1.2}},
+    {"id": "fake-large", "name": "fake-large", "reasoning_effort": null,
+     "harness_args": {"mock-steady": ["boost=0.1"], "mock-flaky": ["boost=0.25"], "mock-careless": ["boost=0.2"], "mock-pricey": ["boost=0.08"]},
+     "price_per_mtok": {"input": 2.0, "cached_input": 0.2, "output": 8.0}}
+  ],
+  "modes": [
+    {"id": "single", "prompt_suffix": ""},
+    {"id": "subagents", "prompt_suffix": "\n\nSplit the work across subagents where your harness supports them."}
+  ],
+  "tasks": [
+    {"id": "md-preview", "spec": "tasks/md-preview", "seed_revision": null, "evaluator_revision": null},
+    {"id": "kanban-undo", "spec": "tasks/kanban-undo", "seed_revision": null, "evaluator_revision": null},
+    {"id": "expenses-csv", "spec": "tasks/expenses-csv", "seed_revision": null, "evaluator_revision": null},
+    {"id": "checkout-refactor", "spec": "tasks/checkout-refactor", "seed_revision": null, "evaluator_revision": null},
+    {"id": "bookmarks-tags", "spec": "tasks/bookmarks-tags", "seed_revision": null, "evaluator_revision": null}
+  ],
+  "harnesses": [
+    {"id": "mock-steady", "adapter": "mock", "args": ["profile", "skill=0.8", "cost=1"], "version": null},
+    {"id": "mock-flaky", "adapter": "mock", "args": ["profile", "skill=0.5", "cost=0.7"], "version": null},
+    {"id": "mock-careless", "adapter": "mock", "args": ["profile", "skill=0.25", "cost=0.5"], "version": null},
+    {"id": "mock-pricey", "adapter": "mock", "args": ["profile", "skill=0.82", "cost=2.6"], "version": null, "modes": ["single"]}
+  ]
+}

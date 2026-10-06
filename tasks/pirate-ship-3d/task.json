@@ -1,0 +1,13 @@
+{
+  "kind": "visual showcase",
+  "evaluator_command": "python3 -B \"$HB_EVAL/check.py\"",
+  "evaluator_timeout_seconds": 60,
+  "capture": {
+    "path": "index.html",
+    "width": 1280,
+    "height": 800,
+    "times_ms": [1500, 4000],
+    "clip": {"duration_ms": 3000, "frames": 24},
+    "probe": "(() => { const all = [...document.querySelectorAll('canvas')]; const c = all.map((e) => e.getBoundingClientRect()); const d = document.documentElement; return { canvases: all.length, gpu: all.some((e) => Boolean(e.getContext('webgl2') || e.getContext('webgl'))), widest: Math.max(0, ...c.map((r) => r.width)), tallest: Math.max(0, ...c.map((r) => r.height)), innerWidth, innerHeight, scrollWidth: d.scrollWidth, scrollHeight: d.scrollHeight, text: document.body.innerText.trim().slice(0, 200) }; })()"
+  }
+}

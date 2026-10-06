@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Expenses</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; max-width: 40rem; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border-bottom: 1px solid #ddd; padding: 0.3rem 0.5rem; text-align: left; }
+    td.amount { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <h1>Expenses</h1>
+  <form id="add">
+    <input name="date" type="date" required>
+    <select name="category"></select>
+    <input name="amount" inputmode="decimal" placeholder="12.50" required>
+    <input name="note" placeholder="Note">
+    <button>Add</button>
+  </form>
+  <div id="table"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

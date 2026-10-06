@@ -1,0 +1,5 @@
+{
+  "kind": "refactor",
+  "evaluator_command": "node \"$HB_EVAL/check.mjs\"",
+  "evaluator_timeout_seconds": 60
+}

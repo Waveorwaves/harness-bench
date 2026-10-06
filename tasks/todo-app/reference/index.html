@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>To-do</title>
+<style>
+  :root { color-scheme: light dark; --line: #d0d0cc; --accent: #2a78d6; }
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 34rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; }
+  #new-todo input, .edit { width: 100%; box-sizing: border-box; font: inherit; padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 8px; }
+  .bar { display: flex; gap: 0.5rem; align-items: center; margin: 0.75rem 0; flex-wrap: wrap; }
+  .bar button, #clear-done { font: inherit; padding: 0.3rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; background: none; color: inherit; cursor: pointer; }
+  .bar button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #count { margin-left: auto; opacity: 0.75; }
+  #todos { list-style: none; margin: 0; padding: 0; }
+  #todos li { display: flex; gap: 0.6rem; align-items: center; padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--line); }
+  #todos .title { flex: 1; overflow-wrap: anywhere; }
+  #todos li.done .title { text-decoration: line-through; opacity: 0.55; }
+  .delete { border: 0; background: none; color: inherit; font-size: 1.1rem; cursor: pointer; opacity: 0.6; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>To-do</h1>
+  <form id="new-todo">
+    <input name="title" placeholder="What needs doing?" aria-label="New to-do" autocomplete="off" autofocus>
+  </form>
+  <div class="bar">
+    <button type="button" data-filter="all">All</button>
+    <button type="button" data-filter="active">Active</button>
+    <button type="button" data-filter="done">Done</button>
+    <span id="count"></span>
+  </div>
+  <ul id="todos"></ul>
+  <p><button type="button" id="clear-done">Clear completed</button></p>
+</main>
+<script>
+const STORE = 'todo-app.items';
+const form = document.getElementById('new-todo');
+const list = document.getElementById('todos');
+const count = document.getElementById('count');
+const clear = document.getElementById('clear-done');
+const filters = [...document.querySelectorAll('[data-filter]')];
+
+let todos = load();
+let filter = 'all';
+let editing = null;
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE) || '[]');
+    return Array.isArray(saved) ? saved.filter((todo) => todo && typeof todo.title === 'string') : [];
+  } catch (error) {
+    return [];
+  }
+}
+function change(next) {
+  todos = next;
+  localStorage.setItem(STORE, JSON.stringify(todos));
+  render();
+}
+const shown = (todo) => filter === 'all' || (filter === 'done') === todo.done;
+
+function finishEdit(todo, input, keep) {
+  if (editing !== todo.id) return;
+  editing = null;
+  const title = input.value.trim();
+  if (!keep) render();
+  else if (!title) change(todos.filter((other) => other.id !== todo.id));
+  else change(todos.map((other) => (other.id === todo.id ? { ...other, title } : other)));
+}
+
+function row(todo) {
+  const item = document.createElement('li');
+  item.classList.toggle('done', todo.done);
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.checked = todo.done;
+  box.setAttribute('aria-label', `Done: ${todo.title}`);
+  box.addEventListener('change', () => change(todos.map((other) => (other.id === todo.id ? { ...other, done: box.checked } : other))));
+  let middle;
+  if (editing === todo.id) {
+    middle = document.createElement('input');
+    middle.className = 'edit';
+    middle.value = todo.title;
+    middle.setAttribute('aria-label', `Edit ${todo.title}`);
+    middle.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') finishEdit(todo, middle, true);
+      if (event.key === 'Escape') finishEdit(todo, middle, false);
+    });
+    middle.addEventListener('blur', () => finishEdit(todo, middle, true));
+  } else {
+    middle = document.createElement('span');
+    middle.className = 'title';
+    middle.textContent = todo.title;
+    middle.addEventListener('dblclick', () => { editing = todo.id; render(); });
+  }
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'delete';
+  remove.textContent = '×';
+  remove.setAttribute('aria-label', `Delete ${todo.title}`);
+  remove.addEventListener('click', () => change(todos.filter((other) => other.id !== todo.id)));
+  item.append(box, middle, remove);
+  return item;
+}
+
+function render() {
+  list.replaceChildren(...todos.filter(shown).map(row));
+  count.textContent = `${todos.filter((todo) => !todo.done).length} left`;
+  clear.disabled = !todos.some((todo) => todo.done);
+  for (const button of filters) button.setAttribute('aria-pressed', String(button.dataset.filter === filter));
+  const field = list.querySelector('.edit');
+  if (field) field.focus();
+}
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const title = form.elements.title.value.trim();
+  form.elements.title.value = '';
+  form.elements.title.focus();
+  if (title) change([...todos, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title, done: false }]);
+});
+for (const button of filters) button.addEventListener('click', () => { filter = button.dataset.filter; render(); });
+clear.addEventListener('click', () => change(todos.filter((todo) => !todo.done)));
+render();
+</script>
+</body>
+</html>

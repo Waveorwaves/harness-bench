@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunset sail</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1030; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="A sailing ship on the sea at sunset"></canvas>
+<script>
+const canvas = document.getElementById('scene');
+const g = canvas.getContext('2d');
+let width = 0, height = 0, horizon = 0;
+
+function resize() {
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  width = window.innerWidth;
+  height = window.innerHeight;
+  horizon = height * 0.58;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  g.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Fixed pseudo-random numbers so clouds and stars stay put between frames.
+const noise = (n) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
+const sun = () => ({ x: width * 0.66, y: horizon - height * 0.07, r: Math.min(width, height) * 0.075 });
+
+function sky() {
+  const fill = g.createLinearGradient(0, 0, 0, horizon);
+  fill.addColorStop(0, '#231942');
+  fill.addColorStop(0.45, '#7b3f72');
+  fill.addColorStop(0.78, '#e8785a');
+  fill.addColorStop(1, '#ffd08a');
+  g.fillStyle = fill;
+  g.fillRect(0, 0, width, horizon + 1);
+  for (let i = 0; i < 70; i++) {
+    const y = noise(i + 9) * horizon * 0.45;
+    g.fillStyle = `rgba(255,255,255,${0.5 * (1 - y / (horizon * 0.45))})`;
+    g.fillRect(noise(i) * width, y, 1.4, 1.4);
+  }
+  const s = sun();
+  const glow = g.createRadialGradient(s.x, s.y, s.r * 0.4, s.x, s.y, s.r * 6);
+  glow.addColorStop(0, 'rgba(255,236,170,0.95)');
+  glow.addColorStop(0.18, 'rgba(255,170,90,0.45)');
+  glow.addColorStop(1, 'rgba(255,120,80,0)');
+  g.fillStyle = glow;
+  g.fillRect(0, 0, width, horizon);
+  g.fillStyle = '#fff3c4';
+  g.beginPath();
+  g.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+  g.fill();
+}
+
+function clouds(time) {
+  for (let i = 0; i < 7; i++) {
+    const y = horizon * (0.18 + noise(i + 30) * 0.5);
+    const x = ((noise(i + 40) * width * 1.4 + time * (6 + i * 2)) % (width * 1.4)) - width * 0.2;
+    const size = 60 + noise(i + 50) * 120;
+    const fill = g.createLinearGradient(0, y - 20, 0, y + 20);
+    fill.addColorStop(0, 'rgba(70,40,90,0.55)');
+    fill.addColorStop(1, 'rgba(255,170,120,0.55)');
+    g.fillStyle = fill;
+    g.beginPath();
+    for (let k = 0; k < 5; k++) g.ellipse(x + k * size * 0.32, y + Math.sin(k * 1.7) * 6, size * 0.34, size * 0.11, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+function sea(time) {
+  const fill = g.createLinearGradient(0, horizon, 0, height);
+  fill.addColorStop(0, '#e9825f');
+  fill.addColorStop(0.12, '#8a3f6b');
+  fill.addColorStop(1, '#170f33');
+  g.fillStyle = fill;
+  g.fillRect(0, horizon, width, height - horizon);
+  const s = sun();
+  // Rows of short strokes: brighter and wider under the sun, growing with distance from the horizon.
+  for (let row = 0; row < 46; row++) {
+    const depth = row / 45;
+    const y = horizon + 3 + (height - horizon) * depth * depth;
+    const length = 8 + depth * 70;
+    for (let x = -length; x < width + length; x += length * 1.9) {
+      const offset = Math.sin(time * 1.4 + row * 1.3 + x * 0.013) * length * 0.5;
+      const near = Math.max(0, 1 - Math.abs(x + offset - s.x) / (40 + depth * 260));
+      const shimmer = 0.5 + 0.5 * Math.sin(time * 3 + row * 2.1 + x * 0.05);
+      g.strokeStyle = near > 0
+        ? `rgba(255,${200 + 40 * shimmer},${140 + 60 * shimmer},${0.18 + near * 0.7 * shimmer})`
+        : `rgba(255,190,170,${0.05 + 0.07 * shimmer})`;
+      g.lineWidth = 1 + depth * 2.2;
+      g.beginPath();
+      g.moveTo(x + offset, y);
+      g.quadraticCurveTo(x + offset + length / 2, y - 2 - depth * 4, x + offset + length, y);
+      g.stroke();
+    }
+  }
+}
+
+function ship(time) {
+  const x = width * 0.36, y = horizon + (height - horizon) * 0.2;
+  const scale = Math.min(width, height) / 620;
+  g.save();
+  g.translate(x, y + Math.sin(time * 1.2) * 4 * scale);
+  g.rotate(Math.sin(time * 0.9) * 0.025);
+  g.scale(scale, scale);
+  const dark = '#1a1026';
+  // Reflection first, so the hull sits on top of it.
+  g.fillStyle = 'rgba(20,10,35,0.35)';
+  for (let i = 0; i < 9; i++) g.fillRect(-88 + i * 3 + Math.sin(time * 2 + i) * 5, 14 + i * 9, 176 - i * 6, 4);
+  g.fillStyle = dark;
+  g.beginPath();
+  g.moveTo(-105, -18);
+  g.quadraticCurveTo(-70, 16, -40, 18);
+  g.lineTo(62, 18);
+  g.quadraticCurveTo(100, 12, 122, -22);
+  g.lineTo(-105, -18);
+  g.fill();
+  g.strokeStyle = 'rgba(255,190,130,0.8)';
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.moveTo(-100, -17);
+  g.lineTo(118, -21);
+  g.stroke();
+  g.strokeStyle = dark;
+  g.lineWidth = 4;
+  for (const [mast, top] of [[-34, -190], [36, -160]]) {
+    g.beginPath();
+    g.moveTo(mast, -18);
+    g.lineTo(mast, top);
+    g.stroke();
+  }
+  const billow = 10 + Math.sin(time * 1.6) * 3;
+  const sail = (points, bulge) => {
+    const fill = g.createLinearGradient(points[0][0], 0, points[1][0] + 60, 0);
+    fill.addColorStop(0, '#3a2440');
+    fill.addColorStop(1, '#f6b782');
+    g.fillStyle = fill;
+    g.beginPath();
+    g.moveTo(...points[0]);
+    g.quadraticCurveTo(points[1][0] + bulge, (points[0][1] + points[1][1]) / 2, ...points[1]);
+    g.lineTo(...points[2]);
+    g.closePath();
+    g.fill();
+  };
+  sail([[-30, -184], [-30, -32], [58, -32]], billow * 2.4);
+  sail([[40, -154], [40, -32], [112, -32]], billow * 2);
+  sail([[-38, -176], [-38, -34], [-98, -34]], -billow);
+  g.fillStyle = '#e25d4a';
+  g.beginPath();
+  g.moveTo(-34, -190);
+  g.lineTo(-34 + 26 + Math.sin(time * 5) * 3, -184);
+  g.lineTo(-34, -176);
+  g.fill();
+  g.restore();
+}
+
+function frame(now) {
+  const time = now / 1000;
+  sky();
+  clouds(time);
+  sea(time);
+  ship(time);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

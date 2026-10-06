@@ -1,0 +1,6 @@
+{
+  "fails": [
+    "undo restores the order after a move inside one column",
+    "existing action behaviour is preserved"
+  ]
+}

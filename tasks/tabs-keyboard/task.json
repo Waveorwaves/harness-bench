@@ -1,0 +1,12 @@
+{
+  "kind": "accessibility fix, graded by using it",
+  "evaluator_command": "python3 -B \"$HB_EVAL/check.py\"",
+  "evaluator_timeout_seconds": 60,
+  "capture": {
+    "path": "index.html",
+    "width": 900,
+    "height": 700,
+    "times_ms": [300],
+    "script": "steps.json"
+  }
+}

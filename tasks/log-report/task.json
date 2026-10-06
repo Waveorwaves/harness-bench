@@ -1,0 +1,5 @@
+{
+  "kind": "feature in a Python command-line tool",
+  "evaluator_command": "python3 -B \"$HB_EVAL/check.py\"",
+  "evaluator_timeout_seconds": 90
+}

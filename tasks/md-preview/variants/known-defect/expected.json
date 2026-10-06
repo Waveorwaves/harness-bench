@@ -1,0 +1,7 @@
+{
+  "fails": [
+    "code block keeps lines, blank lines and indentation",
+    "unmatched markers are plain text",
+    "empty input and windows line endings"
+  ]
+}

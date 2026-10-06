@@ -1,0 +1,5 @@
+{
+  "kind": "feature across modules",
+  "evaluator_command": "node \"$HB_EVAL/check.mjs\"",
+  "evaluator_timeout_seconds": 60
+}

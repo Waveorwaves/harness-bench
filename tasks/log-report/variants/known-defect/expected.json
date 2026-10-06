@@ -1,0 +1,7 @@
+{
+  "fails": [
+    "percentile is exact where the rank is a whole number",
+    "an unreadable --since or --until ends with exit code 2",
+    "JSON repeats since and until in UTC"
+  ]
+}

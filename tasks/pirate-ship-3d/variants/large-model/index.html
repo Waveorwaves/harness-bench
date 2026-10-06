@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#141024;}
+body{background:linear-gradient(180deg,#141a3d 0%,#4b2a55 38%,#c8553c 58%,#f29a45 66%,#1d2a40 67%,#0a1420 100%);}
+#c{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;outline:none;-webkit-user-select:none;user-select:none;}
+</style>
+<script>
+(function () {
+'use strict';
+function main() {
+
+var canvas = document.getElementById('c');
+var gl = null;
+var glOpts = { alpha: false, depth: false, stencil: false, antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' };
+try { gl = canvas.getContext('webgl', glOpts) || canvas.getContext('experimental-webgl', glOpts); } catch (e0) { gl = null; }
+if (!gl) { canvas.style.display = 'none'; return; }
+
+/* ------------------------------------------------------------------ */
+/* small math helpers                                                  */
+/* ------------------------------------------------------------------ */
+var PI = Math.PI;
+function clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
+function sstep(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function mul(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function norm(a) { var l = Math.sqrt(dot(a, a)); if (l < 1e-9) { return [0, 1, 0]; } return [a[0] / l, a[1] / l, a[2] / l]; }
+function lerp3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+
+function m4() { var m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
+function m4mul(o, a, b) {
+  var a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3], a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+  var a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11], a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+  for (var i = 0; i < 4; i++) {
+    var b0 = b[i * 4], b1 = b[i * 4 + 1], b2 = b[i * 4 + 2], b3 = b[i * 4 + 3];
+    o[i * 4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+    o[i * 4 + 1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+    o[i * 4 + 2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+    o[i * 4 + 3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  }
+  return o;
+}
+function m4persp(o, fovy, aspect, near, far) {
+  var f = 1 / Math.tan(fovy / 2), i;
+  for (i = 0; i < 16; i++) { o[i] = 0; }
+  o[0] = f / aspect; o[5] = f; o[10] = (far + near) / (near - far); o[11] = -1; o[14] = 2 * far * near / (near - far);
+  return o;
+}
+function m4ortho(o, l, r, b, t, n, f) {
+  for (var i = 0; i < 16; i++) { o[i] = 0; }
+  o[0] = 2 / (r - l); o[5] = 2 / (t - b); o[10] = -2 / (f - n);
+  o[12] = -(r + l) / (r - l); o[13] = -(t + b) / (t - b); o[14] = -(f + n) / (f - n); o[15] = 1;
+  return o;
+}
+function m4look(o, eye, center, up) {
+  var z = norm(sub(eye, center)), x = norm(cross(up, z)), y = cross(z, x);
+  o[0] = x[0]; o[1] = y[0]; o[2] = z[0]; o[3] = 0;
+  o[4] = x[1]; o[5] = y[1]; o[6] = z[1]; o[7] = 0;
+  o[8] = x[2]; o[9] = y[2]; o[10] = z[2]; o[11] = 0;
+  o[12] = -dot(x, eye); o[13] = -dot(y, eye); o[14] = -dot(z, eye); o[15] = 1;
+  return o;
+}
+function m4point(m, p) {
+  return [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
+}
+
+/* ------------------------------------------------------------------ */
+/* shaders                                                             */
+/* ------------------------------------------------------------------ */
+var FS_PREC = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+`;
+var VS_PREC = `precision highp float;
+`;
+
+var GL_COMMON = `
+uniform vec3 uSunDir;
+uniform vec3 uSunCol;
+uniform vec3 uCamPos;
+uniform float uTime;
+uniform float uRefl;
+uniform float uFog;
+uniform sampler2D uNoise;
+
+vec3 tonemap(vec3 x) {
+  x = max(x, vec3(0.0));
+  vec3 y = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
+  return pow(clamp(y, 0.0, 1.0), vec3(0.4545));
+}
+vec4 finish(vec3 hdr) {
+  if (uRefl > 0.5) {
+    return vec4(sqrt(clamp(hdr * 0.5, 0.0, 1.0)), 1.0);
+  }
+  float m = max(hdr.r, max(hdr.g, hdr.b));
+  float g = smoothstep(2.0, 8.0, m);
+  float dn = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  return vec4(tonemap(hdr) + (dn - 0.5) / 255.0, g);
+}
+vec4 finishA(vec3 hdr, float a) {
+  if (uRefl > 0.5) {
+    return vec4(sqrt(clamp(hdr * 0.5, 0.0, 1.0)), a);
+  }
+  return vec4(tonemap(hdr), a);
+}
+`;
+
+var GL_SKY = `
+uniform vec2 uCloudOff;
+vec3 skyGrad(vec3 d) {
+  float y = clamp(d.y, 0.0, 1.0);
+  vec2 hd = normalize(d.xz + vec2(0.00001, 0.0));
+  vec2 sh = normalize(uSunDir.xz);
+  float az = dot(hd, sh) * 0.5 + 0.5;
+  float az2 = az * az;
+  vec3 zen = vec3(0.028, 0.050, 0.185);
+  vec3 mid = mix(vec3(0.15, 0.12, 0.31), vec3(0.62, 0.23, 0.27), az2);
+  vec3 hor = mix(vec3(0.27, 0.20, 0.35), vec3(1.00, 0.42, 0.13), az2 * az);
+  vec3 c = mix(zen, mid, pow(1.0 - y, 3.6));
+  c = mix(c, hor, pow(1.0 - y, 7.0));
+  float sd = max(dot(d, uSunDir), 0.0);
+  float sd2 = sd * sd;
+  c += vec3(1.2, 0.40, 0.11) * (sd2 * sd2 * sd) * 0.22;
+  c += vec3(1.5, 0.66, 0.20) * pow(sd, 40.0) * 0.30;
+  c += vec3(2.2, 1.25, 0.5) * pow(sd, 350.0) * 0.40;
+  return c;
+}
+vec3 fogColor(vec3 dir) {
+  return skyGrad(normalize(vec3(dir.x, 0.0, dir.z) + vec3(0.0001, 0.0, 0.0)));
+}
+float cloudDens(vec2 p) {
+  float n = texture2D(uNoise, p * 0.13 + uCloudOff).r * 0.50;
+  n += texture2D(uNoise, p * 0.34 + uCloudOff * 1.6 + vec2(0.37, 0.11)).g * 0.30;
+  n += texture2D(uNoise, p * 0.93 - uCloudOff * 1.2 + vec2(0.71, 0.53)).r * 0.20;
+  return n;
+}
+vec4 cloudLayer(vec3 d) {
+  float dy = max(d.y, 0.0);
+  vec2 sdir = normalize(uSunDir.xz);
+  vec2 pr = d.xz / (dy + 0.14);
+  vec2 p = vec2(dot(pr, sdir) * 1.25, dot(pr, vec2(-sdir.y, sdir.x)) * 0.42);
+  float dens = cloudDens(p);
+  float densS = cloudDens(p + vec2(0.30, 0.0));
+  float cov = smoothstep(0.50, 0.62, dens);
+  float lit = clamp((dens - densS) * 5.0 + 0.5, 0.0, 1.0);
+  float thick = smoothstep(0.54, 0.74, dens);
+  float sd = max(dot(d, uSunDir), 0.0);
+  float toward = dot(normalize(d.xz + vec2(0.00001, 0.0)), sdir) * 0.5 + 0.5;
+  float tw2 = toward * toward;
+  vec3 warm = mix(vec3(1.05, 0.44, 0.36), vec3(2.3, 1.15, 0.42), pow(sd, 4.0));
+  vec3 litCol = mix(vec3(0.60, 0.44, 0.58), warm, tw2);
+  vec3 darkCol = mix(vec3(0.21, 0.165, 0.29), vec3(0.34, 0.16, 0.20), tw2 * 0.8);
+  float kSun = clamp(lit * (1.0 - thick * 0.55) + (1.0 - thick) * 0.25, 0.0, 1.0);
+  float kAnti = 0.50 + 0.40 * lit;
+  float k = mix(kAnti, kSun, smoothstep(0.25, 0.75, toward));
+  vec3 col = mix(darkCol, litCol, k);
+  float a = cov * smoothstep(0.0, 0.10, d.y) * 0.94;
+  return vec4(col, a);
+}
+vec3 skyColor(vec3 d) {
+  vec3 g = skyGrad(d);
+  vec4 cl = cloudLayer(d);
+  vec3 cc = mix(cl.rgb, g, pow(1.0 - clamp(d.y, 0.0, 1.0), 10.0) * 0.6);
+  return mix(g, cc, cl.a);
+}
+`;
+
+var GL_AMBIENT = `
+vec3 ambient(vec3 n) {
+  vec2 sh = normalize(uSunDir.xz);
+  float toSun = dot(n.xz, sh);
+  vec3 skyUp = vec3(0.21, 0.23, 0.44);
+  vec3 warm = vec3(0.95, 0.44, 0.21);
+  vec3 cool = vec3(0.25, 0.21, 0.38);
+  vec3 water = vec3(0.09, 0.10, 0.15) + vec3(0.30, 0.14, 0.06) * max(toSun, 0.0);
+  vec3 side = mix(cool, warm, smoothstep(-0.35, 1.0, toSun));
+  vec3 a = mix(water, skyUp, smoothstep(-1.0, 1.0, n.y));
+  a = mix(a, side, (1.0 - abs(n.y)) * 0.65);
+  return a;
+}
+`;
+
+var GL_SHADOW = `
+uniform sampler2D uShadow;
+uniform mat4 uLightMat;
+uniform float uShTexel;
+float unpackD(vec4 c) {
+  return dot(c, vec4(1.0, 1.0 / 255.0, 1.0 / 65025.0, 1.0 / 16581375.0));
+}
+float shadowAt(vec3 wp, float bias) {
+  vec4 lp = uLightMat * vec4(wp, 1.0);
+  vec3 p = lp.xyz * 0.5 + 0.5;
+  if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) {
+    return 1.0;
+  }
+  float z = min(p.z, 1.0) - bias;
+  float s = 0.0;
+  for (int i = -1; i <= 1; i++) {
+    for (int j = -1; j <= 1; j++) {
+      vec2 o = vec2(float(i), float(j)) * (uShTexel * 1.4);
+      s += step(z, unpackD(texture2D(uShadow, p.xy + o)));
+    }
+  }
+  return s / 9.0;
+}
+`;
+
+var GL_WAKE = `
+float bowLine(float bh) {
+  return max(0.5 + bh * 0.345, 0.5 + 4.6 * (1.0 - exp(-bh * 0.33)));
+}
+float wakeH(vec2 p) {
+  float xb = 18.3 - p.x;
+  float az = abs(p.y);
+  float bh = max(xb, 0.0);
+  float armC = bowLine(bh);
+  float armW = 0.9 + bh * 0.06;
+  float t = (az - armC) / armW;
+  float arm = exp(-t * t) * smoothstep(-2.5, 2.0, xb) * exp(-bh * 0.03);
+  float inside = 1.0 - smoothstep(armC * 0.55, armC, az);
+  float trans = sin(bh * 0.2) * inside * smoothstep(24.0, 50.0, bh) * exp(-bh * 0.011);
+  float xs = -17.0 - p.x;
+  float trough = exp(-az * az * 0.07) * smoothstep(-2.0, 3.0, xs) * exp(-max(xs, 0.0) * 0.04);
+  return arm * 0.6 + trans * 0.09 - trough * 0.2;
+}
+`;
+
+var VS_SHIP = VS_PREC + `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+attribute vec4 aCol;
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying vec3 vLocal;
+varying vec4 vCol;
+void main() {
+  vec4 wp = uModel * vec4(aPos, 1.0);
+  vWorld = wp.xyz;
+  vLocal = aPos;
+  vNrm = (uModel * vec4(aNrm, 0.0)).xyz;
+  vCol = aCol;
+  gl_Position = uViewProj * wp;
+}`;
+
+var FS_DEPTH = FS_PREC + `
+vec4 packD(float d) {
+  vec4 e = fract(d * vec4(1.0, 255.0, 65025.0, 16581375.0));
+  e -= e.yzww * vec4(1.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0, 0.0);
+  return e;
+}
+void main() {
+  gl_FragColor = packD(clamp(gl_FragCoord.z, 0.0, 0.99999));
+}`;
+
+var FS_SHIP = FS_PREC + GL_COMMON + GL_SKY + GL_AMBIENT + GL_SHADOW + `
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying vec3 vLocal;
+varying vec4 vCol;
+uniform vec3 uLampPos[6];
+uniform vec3 uLampCol[6];
+void main() {
+  if (uRefl > 0.5 && vWorld.y < 0.0) { discard; }
+  vec3 N = normalize(vNrm);
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 V = toCam / dist;
+  float nv = dot(N, V);
+  if (nv < 0.0) { N = normalize(N - V * (nv * 1.05)); }
+  float mat = vCol.a;
+  vec3 alb = vCol.rgb;
+  float grain = texture2D(uNoise, vec2(vLocal.x * 0.21 + vLocal.z * 0.13, vLocal.y * 0.9 + vLocal.z * 0.33)).r;
+  float fine = texture2D(uNoise, vec2(vLocal.x * 0.83 + vLocal.z * 0.41, vLocal.y * 2.7 - vLocal.z * 1.9)).g;
+  float specAmt = 0.06;
+  float gloss = 18.0;
+  vec3 specCol = vec3(1.0);
+  if (mat < 0.5) {
+    float py = vLocal.y * 3.3;
+    float pl = fract(py);
+    float seam = smoothstep(0.0, 0.08, pl) * (1.0 - smoothstep(0.92, 1.0, pl));
+    float id = floor(py);
+    float sg = floor(vLocal.x * 0.28 + id * 0.37);
+    float tone = fract(sin(id * 12.9898 + sg * 78.233) * 43758.5453);
+    alb *= mix(0.5, 1.0, seam) * (0.80 + 0.40 * tone) * (0.70 + 0.60 * grain);
+  } else if (mat < 1.5) {
+    float pz = vLocal.z * 4.2;
+    float pl = fract(pz);
+    float seam = smoothstep(0.0, 0.07, pl) * (1.0 - smoothstep(0.93, 1.0, pl));
+    float id = floor(pz);
+    float bo = vLocal.x * 0.22 + fract(sin(id * 37.7) * 917.3);
+    float butt = smoothstep(0.0, 0.012, fract(bo));
+    float tone = fract(sin(id * 45.17 + floor(bo) * 91.7) * 4371.7);
+    alb *= mix(0.45, 1.0, seam * butt) * (0.82 + 0.36 * tone) * (0.72 + 0.56 * fine);
+  } else if (mat < 2.5) {
+    specAmt = 0.55; gloss = 40.0;
+    alb *= 0.8 + 0.4 * fine;
+  } else if (mat < 3.5) {
+    specAmt = 0.9; gloss = 28.0; specCol = vec3(1.0, 0.74, 0.34);
+    alb *= 0.75 + 0.5 * grain;
+  } else if (mat < 4.5) {
+    alb *= 1.0;
+  } else if (mat < 5.5) {
+    alb = vec3(0.004);
+  } else {
+    alb *= (0.80 + 0.40 * grain) * (0.90 + 0.20 * fine);
+  }
+  vec3 hdr;
+  if (mat > 3.5 && mat < 4.5) {
+    float fl = 0.86 + 0.14 * sin(uTime * 9.0 + vLocal.x * 3.0 + vLocal.z * 5.0) * sin(uTime * 4.3 + vLocal.z * 2.0);
+    hdr = alb * (3.4 * fl * (0.75 + 0.5 * fine));
+  } else {
+    float wet = 1.0 - smoothstep(0.1, 1.4, vLocal.y);
+    alb *= mix(1.0, 0.62, wet);
+    specAmt = mix(specAmt, max(specAmt, 0.45), wet);
+    gloss = mix(gloss, 60.0, wet);
+    float sh = shadowAt(vWorld + N * 0.09, 0.0006);
+    float ndl = max(dot(N, uSunDir), 0.0);
+    vec3 lit = uSunCol * (ndl * sh) + ambient(N);
+    for (int i = 0; i < 6; i++) {
+      vec3 L = uLampPos[i] - vWorld;
+      float d2 = dot(L, L);
+      float att = 1.0 / (1.0 + d2 * 0.30);
+      float nl = max(dot(N, L * inversesqrt(d2 + 0.0001)), 0.0);
+      lit += uLampCol[i] * (att * (nl * 0.85 + 0.15));
+    }
+    hdr = alb * lit;
+    vec3 Hv = normalize(V + uSunDir);
+    float sp = pow(max(dot(N, Hv), 0.0), gloss) * specAmt;
+    hdr += uSunCol * specCol * (sp * sh);
+    vec3 Rf = reflect(-V, N);
+    hdr += ambient(Rf) * specCol * (specAmt * 0.30);
+    float rim = pow(clamp(1.0 - dot(N, V), 0.0, 1.0), 3.0);
+    float back = max(dot(-V, uSunDir), 0.0);
+    hdr += uSunCol * (alb * 0.5 + 0.04) * (rim * back * 0.22 * (0.3 + 0.7 * sh));
+  }
+  float fg = 1.0 - exp(-dist * uFog);
+  hdr = mix(hdr, fogColor(-V), fg);
+  gl_FragColor = finish(hdr);
+}`;
+
+var VS_SAIL = VS_PREC + `
+attribute vec2 aUV;
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+uniform vec3 uC00;
+uniform vec3 uC10;
+uniform vec3 uC01;
+uniform vec3 uC11;
+uniform vec3 uSailN;
+uniform vec4 uSail;
+uniform float uTimeV;
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying vec2 vUV;
+vec3 sailPos(vec2 uv) {
+  float u = uv.x;
+  float v = uv.y;
+  float tt = uTimeV;
+  vec3 a = mix(uC00, uC10, u);
+  vec3 b = mix(uC01, uC11, u);
+  vec3 p;
+  float d = 0.0;
+  if (uSail.z < 0.5) {
+    float bow = 4.0 * u * (1.0 - u);
+    float vv = v + (1.0 - v) * (1.0 - v) * bow * 0.07;
+    p = mix(a, b, vv);
+    float fu = 1.0 - pow(abs(2.0 * u - 1.0), 2.6);
+    float w = 0.64 * (1.0 - v);
+    float fv = 4.0 * w * (1.0 - w);
+    float gust = 1.0 + 0.09 * sin(tt * 0.61 + uSail.y) + 0.05 * sin(tt * 1.43 + uSail.y * 2.1);
+    d = uSail.x * fu * fv * gust;
+    float low = 1.0 - v;
+    d += uSail.w * sin(u * 8.0 + v * 3.0 - tt * 3.1 + uSail.y * 3.0) * fu * (0.25 + 0.75 * low);
+    d += uSail.w * 0.5 * sin(v * 11.0 - u * 5.0 - tt * 4.3 + uSail.y) * fu * fv;
+  } else if (uSail.z < 1.5) {
+    p = mix(a, b, v);
+    float fu = 1.0 - pow(abs(2.0 * u - 1.0), 2.2);
+    float fv = 1.0 - v * v;
+    float gust = 1.0 + 0.12 * sin(tt * 0.83 + uSail.y);
+    d = uSail.x * fu * fv * gust;
+    d += uSail.w * sin(u * 7.0 - v * 4.0 - tt * 3.7 + uSail.y * 2.0) * fu * (0.4 + 0.6 * u);
+  } else {
+    p = mix(a, b, v);
+    float ph = u * 6.5 - tt * 5.2 + uSail.y + v * 1.3;
+    d = uSail.x * u * (sin(ph) * 0.7 + sin(ph * 1.9 + 1.3 + v * 2.0) * 0.3);
+    p.y += uSail.w * u * (sin(ph * 0.8 + 2.0) * 0.5 - 0.5 * u);
+  }
+  return p + uSailN * d;
+}
+void main() {
+  vec3 p0 = sailPos(aUV);
+  vec2 q = vec2(min(aUV.x, 0.98), min(aUV.y, 0.96));
+  vec3 q0 = sailPos(q);
+  vec3 qu = sailPos(q + vec2(0.02, 0.0));
+  vec3 qv = sailPos(q + vec2(0.0, 0.02));
+  vec3 c = cross(qu - q0, qv - q0);
+  float l = length(c);
+  vec3 n = l > 0.000001 ? c / l : uSailN;
+  vec4 wp = uModel * vec4(p0, 1.0);
+  vWorld = wp.xyz;
+  vNrm = (uModel * vec4(n, 0.0)).xyz;
+  vUV = aUV;
+  gl_Position = uViewProj * wp;
+}`;
+
+var FS_SAIL = FS_PREC + GL_COMMON + GL_SKY + GL_AMBIENT + GL_SHADOW + `
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying vec2 vUV;
+uniform vec4 uSailCol;
+uniform vec3 uSailEmb;
+uniform vec4 uSailAux;
+uniform float uSailMode;
+float sdSeg(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+float skull(vec2 p) {
+  float bones = min(sdSeg(p, vec2(-0.78, -0.62), vec2(0.78, 0.50)), sdSeg(p, vec2(0.78, -0.62), vec2(-0.78, 0.50))) - 0.075;
+  vec2 q = vec2(abs(p.x), p.y);
+  float k1 = min(length(q - vec2(0.80, 0.58)), length(q - vec2(0.86, 0.44)));
+  float k2 = min(length(q - vec2(0.80, -0.70)), length(q - vec2(0.86, -0.56)));
+  bones = min(bones, min(k1, k2) - 0.11);
+  float cran = length((p - vec2(0.0, 0.14)) * vec2(1.0, 1.08)) - 0.43;
+  vec2 jq = abs(p - vec2(0.0, -0.26)) - vec2(0.20, 0.17);
+  float jaw = length(max(jq, 0.0)) + min(max(jq.x, jq.y), 0.0) - 0.06;
+  float head = min(cran, jaw);
+  float shape = min(max(bones, -(head - 0.07)), head);
+  float eyes = length((q - vec2(0.17, 0.10)) * vec2(1.0, 1.15)) - 0.115;
+  float nose = length((p - vec2(0.0, -0.10)) * vec2(1.6, 1.0)) - 0.075;
+  float tl = abs(fract(p.x * 8.0) - 0.5) / 8.0 - 0.012;
+  float teeth = max(tl, max(abs(p.y + 0.35) - 0.085, abs(p.x) - 0.21));
+  float holes = min(eyes, min(nose, teeth));
+  shape = max(shape, -holes);
+  return 1.0 - smoothstep(-0.012, 0.012, shape);
+}
+void main() {
+  if (uRefl > 0.5 && vWorld.y < 0.0) { discard; }
+  vec2 uv = vUV;
+  vec3 alb = uSailCol.rgb;
+  float cloth = 1.0 - step(1.5, uSailMode);
+  float stain = texture2D(uNoise, uv * vec2(1.3, 0.9) + vec2(uSailAux.w * 0.37, uSailAux.w * 0.61)).r;
+  float weave = texture2D(uNoise, uv * vec2(9.0, 7.0)).g;
+  float sx = fract(uv.x * uSailAux.y);
+  float seam = 1.0 - smoothstep(0.0, 0.05, min(sx, 1.0 - sx));
+  float pid = floor(uv.x * uSailAux.y);
+  float ptone = fract(sin(pid * 91.7 + uSailAux.w * 13.1) * 437.5);
+  float reef = (1.0 - smoothstep(0.004, 0.012, abs(uv.y - 0.74))) + (1.0 - smoothstep(0.004, 0.012, abs(uv.y - 0.86)));
+  alb *= 1.0 - cloth * (0.24 * seam + 0.16 * reef * (1.0 - step(0.5, uSailMode)));
+  alb *= mix(1.0, (0.66 + 0.48 * stain) * (0.93 + 0.14 * ptone) * (0.92 + 0.16 * weave), cloth);
+  alb *= mix(1.0, mix(0.78, 1.0, smoothstep(0.0, 0.35, uv.y)), cloth);
+  float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+  alb *= mix(0.55, 1.0, smoothstep(0.0, 0.014, edge));
+  vec2 ep = (uv - vec2(0.5, 0.5)) * vec2(uSailAux.x, 1.0) * (2.0 / uSailAux.z);
+  float em = skull(ep) * uSailCol.a;
+  alb = mix(alb, uSailEmb * (0.8 + 0.4 * stain), em * 0.9);
+
+  vec3 N = normalize(vNrm);
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 V = toCam / dist;
+  if (dot(N, V) < 0.0) { N = -N; }
+  float ndl = dot(N, uSunDir);
+  float sh = mix(0.30, 1.0, shadowAt(vWorld + uSunDir * 0.35, 0.0004));
+  float front = max(ndl, 0.0);
+  float back = max(-ndl, 0.0);
+  vec3 through = vec3(1.0, 0.56, 0.26) * (pow(back, 0.7) * 0.22);
+  vec3 lit = uSunCol * ((vec3(front * 0.8) + through) * sh) + ambient(N) * 0.62 + ambient(-N) * 0.14;
+  vec3 hdr = alb * lit;
+  float fg = 1.0 - exp(-dist * uFog);
+  hdr = mix(hdr, fogColor(-V), fg);
+  gl_FragColor = finish(hdr);
+}`;
+
+var VS_ROPE = VS_PREC + `
+attribute vec3 aPos;
+attribute vec3 aOther;
+attribute vec3 aSide;
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+uniform vec2 uViewport;
+uniform float uPxScale;
+varying float vEdge;
+varying float vHw;
+varying float vFade;
+varying vec3 vWorld;
+void main() {
+  vec4 wp = uModel * vec4(aPos, 1.0);
+  vec4 wo = uModel * vec4(aOther, 1.0);
+  vWorld = wp.xyz;
+  vec4 cp = uViewProj * wp;
+  vec4 co = uViewProj * wo;
+  vec2 sp = cp.xy / max(cp.w, 0.0001);
+  vec2 so = co.xy / max(co.w, 0.0001);
+  vec2 dir = (so - sp) * uViewport;
+  float dl = length(dir);
+  dir = dl > 0.00001 ? dir / dl : vec2(1.0, 0.0);
+  vec2 nrm = vec2(-dir.y, dir.x);
+  float wpx = aSide.z * uPxScale / max(cp.w, 0.0001);
+  float rr = max(wpx, 0.55);
+  float hw = rr + 0.5;
+  vFade = clamp(wpx / 0.55, 0.3, 1.0);
+  vHw = hw;
+  vEdge = aSide.y * hw;
+  cp.xy += nrm * (aSide.x * hw * 2.0) / uViewport * cp.w;
+  gl_Position = cp;
+}`;
+
+var FS_ROPE = FS_PREC + GL_COMMON + GL_SKY + `
+varying float vEdge;
+varying float vHw;
+varying float vFade;
+varying vec3 vWorld;
+uniform vec3 uRopeCol;
+void main() {
+  if (uRefl > 0.5 && vWorld.y < 0.0) { discard; }
+  float cov = clamp(vHw - abs(vEdge), 0.0, 1.0) * vFade;
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 hdr = uRopeCol * (vec3(0.30, 0.27, 0.40) + uSunCol * 0.10);
+  hdr = mix(hdr, fogColor(-toCam / dist), 1.0 - exp(-dist * uFog));
+  gl_FragColor = finishA(hdr, cov);
+}`;
+
+var VS_GLOW = VS_PREC + `
+attribute vec3 aPos;
+attribute vec4 aGlow;
+attribute vec3 aCol;
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+uniform vec3 uCamPosV;
+uniform float uTimeV;
+varying vec2 vC;
+varying vec3 vGCol;
+void main() {
+  vec4 wp = uModel * vec4(aPos, 1.0);
+  float fl = 0.86 + 0.14 * sin(uTimeV * (7.0 + aGlow.w * 5.0) + aGlow.w * 40.0) * sin(uTimeV * 3.1 + aGlow.w * 17.0);
+  wp.xyz += normalize(uCamPosV - wp.xyz) * 0.5;
+  wp.xyz += (uCamRight * aGlow.x + uCamUp * aGlow.y) * aGlow.z;
+  vC = aGlow.xy;
+  vGCol = aCol * fl;
+  gl_Position = uViewProj * wp;
+}`;
+
+var FS_GLOW = FS_PREC + `
+varying vec2 vC;
+varying vec3 vGCol;
+uniform float uRefl;
+void main() {
+  float r2 = dot(vC, vC);
+  float g = max(exp(-r2 * 4.5) - 0.0111, 0.0);
+  float core = exp(-r2 * 38.0);
+  vec3 c = vGCol * (g * 0.30 + core * 0.9);
+  if (uRefl > 0.5) {
+    gl_FragColor = vec4(c * 0.6, 0.0);
+  } else {
+    gl_FragColor = vec4(c, max(c.r, max(c.g, c.b)) * 0.7);
+  }
+}`;
+
+var VS_SPRAY = VS_PREC + GL_WAKE + `
+attribute vec4 aSeed;
+attribute vec2 aCorner;
+uniform mat4 uViewProj;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+uniform vec3 uBow;
+uniform float uTimeV;
+uniform float uSpray;
+varying vec2 vC;
+varying float vA;
+void main() {
+  float life = 0.55 + aSeed.x * 0.65;
+  float ph = fract(uTimeV / life + aSeed.y);
+  float tau = ph * life;
+  float side = aSeed.z < 0.5 ? -1.0 : 1.0;
+  float r3 = fract(aSeed.z * 2.0);
+  float back = aSeed.w * aSeed.w * 3.0;
+  vec3 p0 = uBow + vec3(0.35 - back, 0.0, side * (bowLine(back) - 0.3));
+  vec3 v0 = vec3(0.9 - 2.4 * aSeed.x, 1.3 + 3.6 * r3 * (1.0 - aSeed.w * 0.5), side * (1.0 + 3.6 * aSeed.y));
+  vec3 p = p0 + v0 * tau + vec3(0.0, -4.9 * tau * tau, 0.0);
+  float size = (0.06 + 0.27 * ph) * (0.6 + 0.8 * fract(aSeed.y * 7.0));
+  float fade = 1.0 - ph;
+  vA = fade * fade * smoothstep(0.0, 0.08, ph) * uSpray * smoothstep(-0.7, 0.2, p.y);
+  p += (uCamRight * aCorner.x + uCamUp * aCorner.y) * size;
+  vC = aCorner;
+  gl_Position = uViewProj * vec4(p, 1.0);
+}`;
+
+var FS_SPRAY = FS_PREC + `
+varying vec2 vC;
+varying float vA;
+uniform vec3 uSprayCol;
+void main() {
+  float r2 = dot(vC, vC);
+  float a = max(1.0 - r2, 0.0);
+  a = a * a * vA * 0.8;
+  gl_FragColor = vec4(uSprayCol * a, a);
+}`;
+
+var VS_OCEAN = VS_PREC + GL_WAKE + `
+attribute vec2 aPos;
+uniform mat4 uViewProj;
+uniform vec4 uVWaveA[8];
+uniform vec4 uVWaveB[8];
+uniform vec3 uShipPlane;
+varying vec3 vWorld;
+varying vec2 vXZ;
+void main() {
+  vec2 xz = aPos;
+  float r = length(xz);
+  vec3 p = vec3(xz.x, 0.0, xz.y);
+  for (int i = 0; i < 8; i++) {
+    vec4 A = uVWaveA[i];
+    vec4 B = uVWaveB[i];
+    float fade = 1.0 - smoothstep(B.z * 0.35, B.z, r);
+    float th = A.z * dot(A.xy, xz) + B.x;
+    float a = A.w * fade;
+    p.y += a * sin(th);
+    p.xz += A.xy * (B.y * a * cos(th));
+  }
+  vec2 hq = vec2((xz.x - 0.3) / 19.0, xz.y / 5.0);
+  float he = length(hq);
+  float hg = length(vec2((xz.x - 0.3) / 361.0, xz.y / 25.0));
+  float hd = (he - 1.0) * he / max(hg, 0.0001);
+  float settle = (1.0 - smoothstep(0.2, 6.5, hd)) * 0.88;
+  float plane = uShipPlane.x + uShipPlane.y * xz.x + uShipPlane.z * xz.y;
+  p.y = mix(p.y, plane, settle);
+  p.xz = mix(p.xz, xz, settle);
+  p.y += wakeH(xz);
+  vWorld = p;
+  vXZ = xz;
+  gl_Position = uViewProj * vec4(p, 1.0);
+}`;
+
+var FS_OCEAN = FS_PREC + GL_COMMON + GL_SKY + GL_SHADOW + GL_WAKE + `
+varying vec3 vWorld;
+varying vec2 vXZ;
+uniform vec4 uWaveA[12];
+uniform vec4 uWaveB[12];
+uniform sampler2D uReflTex;
+uniform sampler2D uHullTex;
+uniform vec2 uInvRes;
+uniform vec3 uCamRight;
+uniform vec3 uCamFwd;
+uniform vec4 uRip;
+uniform vec4 uRip2;
+uniform vec4 uRip3;
+vec3 wakeFoam(vec2 p) {
+  float xb = 18.3 - p.x;
+  float az = abs(p.y);
+  float bh = max(xb, 0.0);
+  float armC = bowLine(bh);
+  float armW = 0.55 + bh * 0.032;
+  float t = (az - armC) / armW;
+  float arm = exp(-t * t) * smoothstep(-1.2, 1.5, xb) * exp(-bh / 24.0);
+  float hwid = texture2D(uHullTex, vec2((p.x + 24.0) / 48.0, 0.5)).r * 6.0;
+  float along = (1.0 - smoothstep(18.0, 19.6, p.x)) * smoothstep(-20.5, -17.5, p.x);
+  float side = (1.0 - smoothstep(0.0, 2.6, az - hwid)) * along * (0.6 + 0.4 * (1.0 - smoothstep(2.0, 19.0, p.x)));
+  float xs = -16.5 - p.x;
+  float sb = max(xs, 0.0);
+  float sw = 3.2 + sb * 0.09;
+  float core = (1.0 - smoothstep(sw * 0.25, sw * 1.25, az)) * smoothstep(-7.0, 3.0, xs) * exp(-sb / 130.0);
+  return vec3(arm, side, core);
+}
+void main() {
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 V = toCam / dist;
+  vec2 slope = vec2(0.0);
+  float crest = 0.0;
+  for (int i = 0; i < 12; i++) {
+    vec4 A = uWaveA[i];
+    vec4 B = uWaveB[i];
+    float fade = 1.0 - smoothstep(B.w * 0.5, B.w * 1.3, dist);
+    float th = A.z * dot(A.xy, vXZ) + B.x;
+    float ka = A.z * A.w * fade;
+    slope += A.xy * (ka * cos(th));
+    crest += B.y * ka * sin(th);
+  }
+  float w0 = wakeH(vXZ);
+  slope += vec2(wakeH(vXZ + vec2(0.4, 0.0)) - w0, wakeH(vXZ + vec2(0.0, 0.4)) - w0) * 2.5;
+  vec2 r1 = texture2D(uNoise, vXZ * 0.125 + uRip.xy).ba - 0.5;
+  vec2 r2 = texture2D(uNoise, vec2(vXZ.y, -vXZ.x) * 0.0431 + uRip.zw).ba - 0.5;
+  vec2 r3 = texture2D(uNoise, vec2(vXZ.x + 0.4 * vXZ.y, vXZ.y - 0.4 * vXZ.x) * 0.317 + uRip2.xy).ba - 0.5;
+  vec2 r4 = texture2D(uNoise, vec2(vXZ.x - 0.3 * vXZ.y, vXZ.y + 0.3 * vXZ.x) * 0.0141 + uRip3.xy).ba - 0.5;
+  vec2 det = r1 * 0.9 + vec2(-r2.y, r2.x) * 1.1 + vec2(r3.x - 0.4 * r3.y, 0.4 * r3.x + r3.y) * 0.42 + vec2(r4.x + 0.3 * r4.y, r4.y - 0.3 * r4.x) * 1.2;
+  det *= 0.70;
+  vec3 N = normalize(vec3(-slope.x - det.x, 1.0 - crest, -slope.y - det.y));
+  float farK = smoothstep(150.0, 1500.0, dist);
+
+  float ndv = max(dot(N, V), 0.03);
+  float fres = 0.02 + 0.98 * pow(clamp(1.0 - ndv, 0.0, 1.0), 5.0);
+  vec3 R = reflect(-V, N);
+  R.y = abs(R.y) + 0.015 + farK * 0.05;
+  R = normalize(R);
+  vec3 skyR = skyColor(R);
+
+  vec2 suv = gl_FragCoord.xy * uInvRes;
+  vec2 nrel = vec2(dot(N.xz, uCamRight.xz), dot(N.xz, normalize(uCamFwd.xz + vec2(0.0001, 0.0))));
+  vec2 ruv = suv + vec2(nrel.x * 0.07, nrel.y * 0.16) / (1.0 + dist * 0.012);
+  ruv = clamp(ruv, vec2(0.001), vec2(0.999));
+  vec4 rf = texture2D(uReflTex, ruv);
+  vec3 refl = skyR * (1.0 - rf.a) + rf.rgb * rf.rgb * 2.0;
+
+  float sh = shadowAt(vWorld, 0.0);
+  float rs = max(dot(R, uSunDir), 0.0);
+  float glit = pow(rs, mix(1100.0, 300.0, farK)) * mix(9.0, 3.5, farK) + pow(rs, 140.0) * 0.30;
+  vec3 spec = uSunCol * (glit * sh);
+
+  vec3 deep = vec3(0.010, 0.040, 0.066);
+  vec3 scat = vec3(0.030, 0.19, 0.21);
+  float hgt = clamp(vWorld.y * 0.45 + 0.5, 0.0, 1.0);
+  float toSun = max(dot(-V, uSunDir), 0.0);
+  float sss = toSun * toSun * toSun * hgt * (0.4 + 0.6 * sh);
+  vec3 body = deep * (0.6 + 0.8 * hgt) + scat * (uSunCol * 0.18 + vec3(0.25, 0.30, 0.45)) * (0.10 * hgt + sss * 0.55);
+  vec3 col = mix(body, refl, fres) + spec * (0.25 + 0.75 * fres);
+
+  vec2 fuv = vXZ + uRip2.zw;
+  float n1 = texture2D(uNoise, fuv * 0.046875).r;
+  float n2 = texture2D(uNoise, fuv * 0.1875 + vec2(0.31, 0.67)).g;
+  float n3 = texture2D(uNoise, fuv * 0.671875).r;
+  float n4 = texture2D(uNoise, fuv * vec2(0.09375, 0.4375) + vec2(0.52, 0.21)).g;
+  float lace = n2 * 0.45 + n3 * 0.55;
+  float cf = smoothstep(0.32, 0.50, crest + (n1 - 0.5) * 0.45) * (1.0 - farK);
+  vec3 wk = wakeFoam(vXZ);
+  float pat = smoothstep(0.38, 0.68, lace);
+  float streak = smoothstep(0.36, 0.70, n4 * 0.65 + n2 * 0.35);
+  float fCap = cf * smoothstep(0.36, 0.66, lace + cf * 0.25);
+  float fArm = wk.x * (0.30 + 0.70 * pat * (0.4 + 0.6 * streak));
+  float fSide = wk.y * (0.45 + 0.55 * mix(pat, streak, 0.5));
+  float fCore = wk.z * (0.10 + 0.75 * streak * (0.5 + 0.5 * pat));
+  float foam = clamp(max(max(fCap, fArm), max(fSide, fCore)), 0.0, 1.0);
+  float aer = clamp(wk.z * 0.9 + wk.y * 0.6 + wk.x * 0.45 + cf * 0.35, 0.0, 1.0);
+  col += scat * (uSunCol * 0.10 + vec3(0.18, 0.22, 0.30)) * (aer * 1.5 * (1.0 - foam));
+  float fl = 0.35 + 0.65 * max(dot(N, uSunDir) * 0.5 + 0.5, 0.0);
+  vec3 foamCol = vec3(0.40, 0.41, 0.54) + uSunCol * (0.17 * fl * (0.25 + 0.75 * sh));
+  col = mix(col, foamCol, foam * 0.88);
+
+  float fg = 1.0 - exp(-dist * uFog);
+  col = mix(col, fogColor(-V), fg);
+  gl_FragColor = finish(col);
+}`;
+
+var VS_GULL = VS_PREC + `
+attribute vec3 aSeed;
+attribute vec3 aWing;
+uniform mat4 uViewProj;
+uniform float uTimeV;
+varying vec3 vWorld;
+varying float vShade;
+void main() {
+  float R = 16.0 + aSeed.x * 34.0;
+  float dirS = aSeed.y < 0.5 ? -1.0 : 1.0;
+  float a = uTimeV * dirS * (7.0 + 4.0 * aSeed.z) / R + aSeed.y * 40.0;
+  vec3 radial = vec3(cos(a), 0.0, sin(a));
+  vec3 c = vec3(-4.0 + (aSeed.z - 0.5) * 30.0, 22.0 + aSeed.x * 20.0 + 2.5 * sin(a * 1.7 + aSeed.z * 9.0), (aSeed.y - 0.5) * 24.0);
+  vec3 pos = c + radial * R;
+  vec3 fwd = vec3(-sin(a), 0.0, cos(a)) * dirS;
+  vec3 up = normalize(vec3(0.0, 1.0, 0.0) - radial * 0.35);
+  vec3 rgt = cross(fwd, up);
+  float flap = sin(uTimeV * (5.5 + aSeed.x * 2.0) + aSeed.z * 30.0);
+  float glide = smoothstep(-0.2, 0.5, sin(uTimeV * 0.45 + aSeed.y * 20.0));
+  float ang = mix(0.14, flap * 0.55 + 0.1, glide);
+  float ang2 = ang - 0.35 - 0.25 * flap * glide;
+  float sp = abs(aWing.x);
+  float sgn = aWing.x < 0.0 ? -1.0 : 1.0;
+  float inner = min(sp, 0.45);
+  float outer = max(sp - 0.45, 0.0);
+  float lat = cos(ang) * inner + cos(ang2) * outer;
+  float ver = sin(ang) * inner + sin(ang2) * outer;
+  float span = 1.0;
+  vec3 p = pos + fwd * (aWing.y * 0.9) + (rgt * (sgn * lat) + up * ver) * span + up * aWing.z;
+  vWorld = p;
+  vShade = 0.5 + 0.5 * ver + aWing.z * 2.0;
+  gl_Position = uViewProj * vec4(p, 1.0);
+}`;
+
+var FS_GULL = FS_PREC + GL_COMMON + GL_SKY + `
+varying vec3 vWorld;
+varying float vShade;
+void main() {
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 hdr = vec3(0.060, 0.055, 0.070) * (0.7 + 0.6 * vShade) + uSunCol * 0.014;
+  hdr = mix(hdr, fogColor(-toCam / dist), 1.0 - exp(-dist * uFog));
+  gl_FragColor = finish(hdr);
+}`;
+
+var VS_ISLE = VS_PREC + `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+attribute vec2 aCen;
+uniform mat4 uViewProj;
+uniform float uTravel;
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying float vH;
+void main() {
+  float cx = mod(aCen.x - uTravel + 9000.0, 18000.0) - 9000.0;
+  float k = 1.0 - smoothstep(7200.0, 8800.0, abs(cx));
+  vec3 p = vec3(cx + aPos.x, aPos.y * k - 1.5, aCen.y + aPos.z);
+  vWorld = p;
+  vNrm = aNrm;
+  vH = aPos.y;
+  gl_Position = uViewProj * vec4(p, 1.0);
+}`;
+
+var FS_ISLE = FS_PREC + GL_COMMON + GL_SKY + GL_AMBIENT + `
+varying vec3 vWorld;
+varying vec3 vNrm;
+varying float vH;
+void main() {
+  vec3 N = normalize(vNrm);
+  vec3 toCam = uCamPos - vWorld;
+  float dist = length(toCam);
+  vec3 V = toCam / dist;
+  float rock = texture2D(uNoise, vWorld.xz * 0.004 + vec2(vH * 0.01, 0.0)).r;
+  vec3 alb = mix(vec3(0.10, 0.085, 0.075), vec3(0.07, 0.10, 0.06), smoothstep(0.35, 0.75, N.y) * (1.0 - smoothstep(20.0, 120.0, vH))) * (0.7 + 0.6 * rock);
+  vec3 hdr = alb * (uSunCol * max(dot(N, uSunDir), 0.0) + ambient(N));
+  float fg = 1.0 - exp(-dist * uFog * 1.25);
+  hdr = mix(hdr, fogColor(-V), fg);
+  gl_FragColor = finish(hdr);
+}`;
+
+var VS_SKY = VS_PREC + `
+attribute vec2 aPos;
+varying vec2 vNdc;
+void main() {
+  vNdc = aPos;
+  gl_Position = vec4(aPos, 0.9999, 1.0);
+}`;
+
+var FS_SKY = FS_PREC + GL_COMMON + GL_SKY + `
+varying vec2 vNdc;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+uniform vec3 uCamFwd;
+uniform vec2 uTanFov;
+void main() {
+  vec3 d = normalize(uCamFwd + uCamRight * (vNdc.x * uTanFov.x) + uCamUp * (vNdc.y * uTanFov.y));
+  vec3 g = skyGrad(d);
+  vec4 cl = cloudLayer(d);
+  vec3 cc = mix(cl.rgb, g, pow(1.0 - clamp(d.y, 0.0, 1.0), 10.0) * 0.6);
+  vec3 col = mix(g, cc, cl.a);
+  float sd = dot(d, uSunDir);
+  float disc = smoothstep(0.99966, 0.99978, sd);
+  float low = smoothstep(-0.01, 0.10, d.y);
+  vec3 sunC = mix(vec3(7.0, 1.6, 0.35), vec3(11.0, 6.5, 2.4), low);
+  col += sunC * (disc * (1.0 - cl.a * 0.85));
+  gl_FragColor = finish(col);
+}`;
+
+var VS_POST = VS_PREC + `
+attribute vec2 aPos;
+varying vec2 vUV;
+void main() {
+  vUV = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+var FS_COPY = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uTex;
+void main() {
+  gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0);
+}`;
+
+var FS_BRIGHT = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+void main() {
+  vec4 a = texture2D(uTex, vUV + uTexel * vec2(-1.0, -1.0));
+  vec4 b = texture2D(uTex, vUV + uTexel * vec2(1.0, -1.0));
+  vec4 c = texture2D(uTex, vUV + uTexel * vec2(-1.0, 1.0));
+  vec4 d = texture2D(uTex, vUV + uTexel * vec2(1.0, 1.0));
+  vec3 bl = a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a;
+  vec3 av = (a.rgb + b.rgb + c.rgb + d.rgb) * 0.25;
+  float l = dot(av, vec3(0.299, 0.587, 0.114));
+  gl_FragColor = vec4(bl * 0.25, smoothstep(0.72, 1.0, l));
+}`;
+
+var FS_DOWN = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+void main() {
+  vec4 s = texture2D(uTex, vUV + uTexel * vec2(-1.0, -1.0));
+  s += texture2D(uTex, vUV + uTexel * vec2(1.0, -1.0));
+  s += texture2D(uTex, vUV + uTexel * vec2(-1.0, 1.0));
+  s += texture2D(uTex, vUV + uTexel * vec2(1.0, 1.0));
+  gl_FragColor = s * 0.25;
+}`;
+
+var FS_BLUR = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+void main() {
+  vec4 s = texture2D(uTex, vUV) * 0.227027;
+  s += (texture2D(uTex, vUV + uDir * 1.384615) + texture2D(uTex, vUV - uDir * 1.384615)) * 0.316216;
+  s += (texture2D(uTex, vUV + uDir * 3.230769) + texture2D(uTex, vUV - uDir * 3.230769)) * 0.070270;
+  gl_FragColor = s;
+}`;
+
+var FS_RAYS = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uSunUV;
+uniform float uAspect;
+void main() {
+  vec2 delta = uSunUV - vUV;
+  float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  vec2 stp = delta * (0.92 / 24.0);
+  vec2 p = vUV + stp * jit;
+  float acc = 0.0;
+  float w = 1.0;
+  float tw = 0.0;
+  for (int i = 0; i < 24; i++) {
+    acc += texture2D(uTex, p).a * w;
+    tw += w;
+    w *= 0.95;
+    p += stp;
+  }
+  float dd = length(delta * vec2(uAspect, 1.0));
+  float fall = 1.0 / (1.0 + dd * dd * 6.0);
+  gl_FragColor = vec4(vec3(acc / tw * fall), 1.0);
+}`;
+
+var FS_FINAL = FS_PREC + `
+varying vec2 vUV;
+uniform sampler2D uScene;
+uniform sampler2D uBloomA;
+uniform sampler2D uBloomB;
+uniform sampler2D uBloomC;
+uniform sampler2D uRays;
+uniform vec2 uTexel;
+uniform vec3 uRayCol;
+uniform float uTime;
+vec3 fxaa(vec2 uv) {
+  vec3 lw = vec3(0.299, 0.587, 0.114);
+  vec3 rgbNW = texture2D(uScene, uv + vec2(-1.0, -1.0) * uTexel).rgb;
+  vec3 rgbNE = texture2D(uScene, uv + vec2(1.0, -1.0) * uTexel).rgb;
+  vec3 rgbSW = texture2D(uScene, uv + vec2(-1.0, 1.0) * uTexel).rgb;
+  vec3 rgbSE = texture2D(uScene, uv + vec2(1.0, 1.0) * uTexel).rgb;
+  vec3 rgbM = texture2D(uScene, uv).rgb;
+  float lNW = dot(rgbNW, lw);
+  float lNE = dot(rgbNE, lw);
+  float lSW = dot(rgbSW, lw);
+  float lSE = dot(rgbSE, lw);
+  float lM = dot(rgbM, lw);
+  float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+  float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+  vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+  float dirReduce = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125);
+  float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);
+  dir = clamp(dir * rcp, vec2(-8.0), vec2(8.0)) * uTexel;
+  vec3 rgbA = 0.5 * (texture2D(uScene, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(uScene, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+  vec3 rgbB = rgbA * 0.5 + 0.25 * (texture2D(uScene, uv - dir * 0.5).rgb + texture2D(uScene, uv + dir * 0.5).rgb);
+  float lB = dot(rgbB, lw);
+  if (lB < lMin || lB > lMax) { return rgbA; }
+  return rgbB;
+}
+void main() {
+  vec3 c = fxaa(vUV);
+  vec3 bloom = texture2D(uBloomA, vUV).rgb * 0.40 + texture2D(uBloomB, vUV).rgb * 0.34 + texture2D(uBloomC, vUV).rgb * 0.30;
+  c += bloom * 0.75;
+  float rays = texture2D(uRays, vUV).r;
+  c += uRayCol * rays;
+  c = clamp(c, 0.0, 1.0);
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  c = mix(vec3(l), c, 1.08);
+  c = c * c * (3.0 - 2.0 * c) * 0.35 + c * 0.65;
+  vec2 q = (vUV - 0.5) * vec2(1.1, 1.25);
+  float vig = 1.0 - smoothstep(0.30, 1.05, dot(q, q) * 2.2);
+  c *= mix(0.55, 1.0, vig);
+  c *= vec3(1.02, 1.0, 0.98);
+  float gr = fract(sin(dot(gl_FragCoord.xy + vec2(uTime * 61.0, uTime * 37.0), vec2(12.9898, 78.233))) * 43758.5453);
+  c += (gr - 0.5) * 0.018;
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+/* ------------------------------------------------------------------ */
+/* GL helpers                                                          */
+/* ------------------------------------------------------------------ */
+function compile(type, src) {
+  var s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { throw new Error('shader: ' + gl.getShaderInfoLog(s)); }
+  return s;
+}
+function program(vs, fs, attrs) {
+  var p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  for (var i = 0; i < attrs.length; i++) { gl.bindAttribLocation(p, i, attrs[i]); }
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { throw new Error('link: ' + gl.getProgramInfoLog(p)); }
+  return { p: p, u: {} };
+}
+/* decorative passes may fail to build on an unusual driver without taking the scene down */
+function tryProgram(vs, fs, attrs) {
+  try { return program(vs, fs, attrs); } catch (e) { return null; }
+}
+function U(pr, name) {
+  var l = pr.u[name];
+  if (l === undefined) { l = pr.u[name] = gl.getUniformLocation(pr.p, name); }
+  return l;
+}
+function makeMesh(arr, layout) {
+  var buf = gl.createBuffer(), f = (arr instanceof Float32Array) ? arr : new Float32Array(arr), stride = 0, i;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, f, gl.STATIC_DRAW);
+  for (i = 0; i < layout.length; i++) { stride += layout[i]; }
+  return { buf: buf, layout: layout, stride: stride, count: f.length / stride };
+}
+var attrOn = [false, false, false, false];
+function bindMesh(m) {
+  var off = 0, i;
+  gl.bindBuffer(gl.ARRAY_BUFFER, m.buf);
+  for (i = 0; i < 4; i++) {
+    if (i < m.layout.length) {
+      if (!attrOn[i]) { gl.enableVertexAttribArray(i); attrOn[i] = true; }
+      gl.vertexAttribPointer(i, m.layout[i], gl.FLOAT, false, m.stride * 4, off * 4);
+      off += m.layout[i];
+    } else if (attrOn[i]) { gl.disableVertexAttribArray(i); attrOn[i] = false; }
+  }
+}
+function makeTarget(w, h, depth, filter) {
+  var tex = gl.createTexture(), fb, rb = null;
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  if (depth) {
+    rb = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rb);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, null);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+    }
+  }
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { throw new Error('framebuffer'); }
+  /* give every attachment defined contents straight away */
+  gl.viewport(0, 0, w, h);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(depth ? (gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT) : gl.COLOR_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { fb: fb, tex: tex, rb: rb, w: w, h: h };
+}
+function freeTarget(t) {
+  if (!t) { return; }
+  gl.deleteFramebuffer(t.fb);
+  gl.deleteTexture(t.tex);
+  if (t.rb) { gl.deleteRenderbuffer(t.rb); }
+}
+function bindTex(unit, tex) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); }
+
+/* ------------------------------------------------------------------ */
+/* procedural textures                                                 */
+/* ------------------------------------------------------------------ */
+function buildNoise() {
+  var N = 256, data = new Uint8Array(N * N * 4), seed = 90210, x, y, i;
+  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+  function table(per) { var t = new Float32Array(per * per); for (var q = 0; q < t.length; q++) { t[q] = rnd(); } return t; }
+  function vn(px, py, per, t) {
+    var ix = Math.floor(px), iy = Math.floor(py), fx = px - ix, fy = py - iy;
+    var ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10), uy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+    var x0 = ((ix % per) + per) % per, y0 = ((iy % per) + per) % per, x1 = (x0 + 1) % per, y1 = (y0 + 1) % per;
+    var a = t[y0 * per + x0], b = t[y0 * per + x1], c = t[y1 * per + x0], e = t[y1 * per + x1];
+    return a + (b - a) * ux + (c - a) * uy + (a - b - c + e) * ux * uy;
+  }
+  function field(pers, gains, ridge) {
+    var f = new Float32Array(N * N), tabs = [], tot = 0, o, xx, yy;
+    for (o = 0; o < pers.length; o++) { tabs.push(table(pers[o])); tot += gains[o]; }
+    for (yy = 0; yy < N; yy++) {
+      for (xx = 0; xx < N; xx++) {
+        var s = 0;
+        for (o = 0; o < pers.length; o++) {
+          var v = vn(xx / N * pers[o], yy / N * pers[o], pers[o], tabs[o]);
+          if (ridge) { v = 1 - Math.abs(2 * v - 1); v = v * v; }
+          s += v * gains[o];
+        }
+        f[yy * N + xx] = s / tot;
+      }
+    }
+    return f;
+  }
+  var fa = field([4, 8, 16, 32, 64], [1, 0.5, 0.25, 0.125, 0.0625], false);
+  var fb = field([6, 12, 24, 48, 96], [1, 0.55, 0.3, 0.16, 0.08], false);
+  var fh = field([5, 10, 20, 40, 80], [1, 0.52, 0.27, 0.14, 0.07], true);
+  var fh2 = field([7, 14, 28, 56], [1, 0.5, 0.25, 0.12], false);
+  var sx = new Float32Array(N * N), sy = new Float32Array(N * N), rms = 0;
+  for (i = 0; i < N * N; i++) { fh[i] = fh[i] * 0.65 + fh2[i] * 0.35; }
+  for (y = 0; y < N; y++) {
+    for (x = 0; x < N; x++) {
+      var xm = (x + N - 1) % N, xp = (x + 1) % N, ym = (y + N - 1) % N, yp = (y + 1) % N;
+      var dx = fh[y * N + xp] - fh[y * N + xm], dy = fh[yp * N + x] - fh[ym * N + x];
+      sx[y * N + x] = dx; sy[y * N + x] = dy; rms += dx * dx + dy * dy;
+    }
+  }
+  rms = Math.sqrt(rms / (2 * N * N)) || 1;
+  for (i = 0; i < N * N; i++) {
+    data[i * 4] = Math.round(clamp((fa[i] - 0.5) * 1.7 + 0.5, 0, 1) * 255);
+    data[i * 4 + 1] = Math.round(clamp((fb[i] - 0.5) * 1.7 + 0.5, 0, 1) * 255);
+    data[i * 4 + 2] = Math.round(clamp(0.5 + sx[i] / (rms * 6), 0, 1) * 255);
+    data[i * 4 + 3] = Math.round(clamp(0.5 + sy[i] / (rms * 6), 0, 1) * 255);
+  }
+  var tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, N, N, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  var ext = gl.getExtension('EXT_texture_filter_anisotropic');
+  if (ext) {
+    var mx = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1;
+    gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, mx));
+  }
+  return tex;
+}
+
+/* ------------------------------------------------------------------ */
+/* hull form                                                           */
+/* ------------------------------------------------------------------ */
+var KEEL = -2.6, HREF = 4.75;
+function xSt(y) { return -17.2 - 0.40 * (y + 2.6); }
+function xBw(y) { return 12.5 + 9.3 * (1 - Math.exp(-(y + 2.6) * 0.42)); }
+function hx(s, y) { return xSt(y) + (xBw(y) - xSt(y)) * s; }
+function hs(x, y) { return (x - xSt(y)) / (xBw(y) - xSt(y)); }
+function sheer(s) {
+  return 4.75 + 1.0 * sstep(0.645, 0.68, s) + 1.45 * sstep(0.385, 0.348, s) + 1.6 * sstep(0.215, 0.179, s) + 0.5 * Math.pow(Math.abs(2 * s - 1), 2.5);
+}
+function hw(s, y) {
+  var B, u, q, qb = 0.48, e, p, a, b, th, run;
+  if (s > 0.52) { u = (s - 0.52) / 0.48; B = Math.pow(Math.max(0, 1 - Math.pow(u, 2.4)), 0.7); }
+  else { u = (0.52 - s) / 0.52; B = 1 - 0.36 * u * u; }
+  B *= 5.2;
+  q = Math.max(0, (y - KEEL) / (HREF - KEEL));
+  e = 2.4 - 1.3 * Math.pow(Math.abs(s - 0.5) * 2, 1.6);
+  if (q < qb) { a = 1 - q / qb; p = Math.pow(Math.max(0, 1 - Math.pow(a, e)), 1 / e); }
+  else { b = (q - qb) / (1 - qb); th = 0.13 - 0.24 * sstep(0.72, 1.0, s); p = 1 - th * Math.pow(b, 1.5); }
+  run = 1 - sstep(0.0, 0.2, s);
+  p *= 1 - run * (1 - sstep(0.05, 0.6, q));
+  return Math.max(0, B * p);
+}
+function hp(s, y, side) { return [hx(s, y), y, side * hw(s, y)]; }
+function hn(s, y, side) {
+  var s0 = Math.max(0, s - 0.004), s1 = Math.min(1, s + 0.004), y0 = Math.max(KEEL, y - 0.03);
+  var a = sub(hp(s1, y, 1), hp(s0, y, 1)), b = sub(hp(s, y + 0.03, 1), hp(s, y0, 1)), n = norm(cross(a, b));
+  return [n[0], n[1], side * n[2]];
+}
+
+/* ------------------------------------------------------------------ */
+/* mesh builder                                                        */
+/* ------------------------------------------------------------------ */
+function Mesh() { this.v = []; this.c = [0.5, 0.5, 0.5]; this.mt = 6; this.m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]; this.stk = []; }
+var MP = Mesh.prototype;
+MP.push = function () { this.stk.push(this.m.slice()); };
+MP.pop = function () { this.m = this.stk.pop(); };
+MP.col = function (c) { this.c = [c[0], c[1], c[2]]; this.mt = c[3]; };
+MP.translate = function (x, y, z) { var m = this.m; m[3] += m[0] * x + m[1] * y + m[2] * z; m[7] += m[4] * x + m[5] * y + m[6] * z; m[11] += m[8] * x + m[9] * y + m[10] * z; };
+MP.rotY = function (a) { var m = this.m, c = Math.cos(a), s = Math.sin(a), r, a0, a2; for (r = 0; r < 12; r += 4) { a0 = m[r]; a2 = m[r + 2]; m[r] = a0 * c - a2 * s; m[r + 2] = a0 * s + a2 * c; } };
+MP.rotX = function (a) { var m = this.m, c = Math.cos(a), s = Math.sin(a), r, a1, a2; for (r = 0; r < 12; r += 4) { a1 = m[r + 1]; a2 = m[r + 2]; m[r + 1] = a1 * c + a2 * s; m[r + 2] = -a1 * s + a2 * c; } };
+MP.rotZ = function (a) { var m = this.m, c = Math.cos(a), s = Math.sin(a), r, a0, a1; for (r = 0; r < 12; r += 4) { a0 = m[r]; a1 = m[r + 1]; m[r] = a0 * c + a1 * s; m[r + 1] = -a0 * s + a1 * c; } };
+MP.frame = function (o, ax, ay, az) {
+  var m = this.m, n = [], r, a, b, c;
+  for (r = 0; r < 3; r++) {
+    a = m[r * 4]; b = m[r * 4 + 1]; c = m[r * 4 + 2];
+    n[r * 4] = a * ax[0] + b * ax[1] + c * ax[2];
+    n[r * 4 + 1] = a * ay[0] + b * ay[1] + c * ay[2];
+    n[r * 4 + 2] = a * az[0] + b * az[1] + c * az[2];
+    n[r * 4 + 3] = a * o[0] + b * o[1] + c * o[2] + m[r * 4 + 3];
+  }
+  this.m = n;
+};
+MP.tp = function (p) { var m = this.m; return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3], m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7], m[8] * p[0] + m[9] * p[1] + m[10] * p[2] + m[11]]; };
+MP.tn = function (n) { var m = this.m; return norm([m[0] * n[0] + m[1] * n[1] + m[2] * n[2], m[4] * n[0] + m[5] * n[1] + m[6] * n[2], m[8] * n[0] + m[9] * n[1] + m[10] * n[2]]); };
+MP.vert = function (p, n) { var q = this.tp(p), k = this.tn(n), c = this.c; this.v.push(q[0], q[1], q[2], k[0], k[1], k[2], c[0], c[1], c[2], this.mt); };
+MP.tri = function (a, b, c, na, nb, nc) {
+  if (!na) { na = norm(cross(sub(b, a), sub(c, a))); }
+  if (!nb) { nb = na; nc = na; }
+  this.vert(a, na); this.vert(b, nb); this.vert(c, nc);
+};
+MP.quad = function (a, b, c, d, n) {
+  if (!n) { n = norm(cross(sub(b, a), sub(d, a))); }
+  this.tri(a, b, c, n); this.tri(a, c, d, n);
+};
+MP.quadN = function (a, b, c, d, na, nb, nc, nd) { this.tri(a, b, c, na, nb, nc); this.tri(a, c, d, na, nc, nd); };
+MP.box = function (x0, y0, z0, x1, y1, z1) {
+  this.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1]);
+  this.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1]);
+  this.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0]);
+  this.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0]);
+  this.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0]);
+  this.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0]);
+};
+MP.boxC = function (cx, cy, cz, sx, sy, sz) { this.box(cx - sx / 2, cy - sy / 2, cz - sz / 2, cx + sx / 2, cy + sy / 2, cz + sz / 2); };
+MP.tube = function (pts, rad, seg, capA, capB) {
+  var n = pts.length, rings = [], i, j, prevN = null;
+  for (i = 0; i < n; i++) {
+    var t = norm(sub(pts[Math.min(i + 1, n - 1)], pts[Math.max(i - 1, 0)])), nn;
+    if (!prevN) { var up = Math.abs(t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]; nn = norm(sub(up, mul(t, dot(up, t)))); }
+    else { nn = norm(sub(prevN, mul(t, dot(prevN, t)))); }
+    prevN = nn;
+    var bn = cross(t, nn), r = (typeof rad === 'number') ? rad : rad[i], ring = [];
+    for (j = 0; j <= seg; j++) {
+      var a = j / seg * PI * 2, c = Math.cos(a), s = Math.sin(a);
+      var d = [nn[0] * c + bn[0] * s, nn[1] * c + bn[1] * s, nn[2] * c + bn[2] * s];
+      ring.push([add(pts[i], mul(d, r)), d]);
+    }
+    rings.push(ring);
+  }
+  for (i = 0; i < n - 1; i++) {
+    for (j = 0; j < seg; j++) {
+      var A = rings[i][j], B = rings[i][j + 1], C = rings[i + 1][j + 1], D = rings[i + 1][j];
+      this.quadN(A[0], B[0], C[0], D[0], A[1], B[1], C[1], D[1]);
+    }
+  }
+  if (capA) { var t0 = norm(sub(pts[0], pts[1])); for (j = 0; j < seg; j++) { this.tri(pts[0], rings[0][j][0], rings[0][j + 1][0], t0); } }
+  if (capB) { var t1 = norm(sub(pts[n - 1], pts[n - 2])); for (j = 0; j < seg; j++) { this.tri(pts[n - 1], rings[n - 1][j][0], rings[n - 1][j + 1][0], t1); } }
+};
+MP.cyl = function (a, b, r0, r1, seg, caps) { this.tube([a, b], [r0, r1], seg, caps, caps); };
+MP.lathe = function (prof, seg) {
+  for (var i = 0; i < prof.length - 1; i++) {
+    var r0 = prof[i][0], y0 = prof[i][1], r1 = prof[i + 1][0], y1 = prof[i + 1][1];
+    var dr = r1 - r0, dy = y1 - y0, l = Math.sqrt(dr * dr + dy * dy) || 1, nr = dy / l, ny = -dr / l;
+    for (var j = 0; j < seg; j++) {
+      var a0 = j / seg * PI * 2, a1 = (j + 1) / seg * PI * 2, c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+      this.quadN([r0 * c0, y0, r0 * s0], [r0 * c1, y0, r0 * s1], [r1 * c1, y1, r1 * s1], [r1 * c0, y1, r1 * s0],
+        [nr * c0, ny, nr * s0], [nr * c1, ny, nr * s1], [nr * c1, ny, nr * s1], [nr * c0, ny, nr * s0]);
+    }
+  }
+};
+MP.sphere = function (c, r, nu, nv) {
+  for (var i = 0; i < nv; i++) {
+    var p0 = i / nv * PI, p1 = (i + 1) / nv * PI;
+    for (var j = 0; j < nu; j++) {
+      var a0 = j / nu * PI * 2, a1 = (j + 1) / nu * PI * 2;
+      var n00 = [Math.sin(p0) * Math.cos(a0), Math.cos(p0), Math.sin(p0) * Math.sin(a0)];
+      var n01 = [Math.sin(p0) * Math.cos(a1), Math.cos(p0), Math.sin(p0) * Math.sin(a1)];
+      var n10 = [Math.sin(p1) * Math.cos(a0), Math.cos(p1), Math.sin(p1) * Math.sin(a0)];
+      var n11 = [Math.sin(p1) * Math.cos(a1), Math.cos(p1), Math.sin(p1) * Math.sin(a1)];
+      this.quadN(add(c, mul(n00, r)), add(c, mul(n01, r)), add(c, mul(n11, r)), add(c, mul(n10, r)), n00, n01, n11, n10);
+    }
+  }
+};
+MP.surf = function (nu, nv, fn, colFn, flip) {
+  var P = [], Nn = [], i, j, sg = flip ? -1 : 1;
+  for (i = 0; i <= nu; i++) { P.push([]); for (j = 0; j <= nv; j++) { P[i].push(fn(i / nu, j / nv, i, j)); } }
+  for (i = 0; i <= nu; i++) {
+    Nn.push([]);
+    for (j = 0; j <= nv; j++) {
+      var a = sub(P[Math.min(i + 1, nu)][j], P[Math.max(i - 1, 0)][j]), b = sub(P[i][Math.min(j + 1, nv)], P[i][Math.max(j - 1, 0)]);
+      Nn[i].push(mul(norm(cross(a, b)), sg));
+    }
+  }
+  for (i = 0; i < nu; i++) {
+    for (j = 0; j < nv; j++) {
+      if (colFn) { colFn(i, j); }
+      this.quadN(P[i][j], P[i + 1][j], P[i + 1][j + 1], P[i][j + 1], Nn[i][j], Nn[i + 1][j], Nn[i + 1][j + 1], Nn[i][j + 1]);
+    }
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/* the ship                                                            */
+/* ------------------------------------------------------------------ */
+var P_TAR = [0.06, 0.045, 0.04, 0], P_BOOT = [0.46, 0.43, 0.34, 0], P_PLANK = [0.30, 0.18, 0.10, 0], P_WALE = [0.05, 0.042, 0.04, 0];
+var P_PLANK2 = [0.36, 0.22, 0.12, 0], P_RED = [0.33, 0.062, 0.05, 0], P_TOPBAND = [0.08, 0.06, 0.05, 0], P_RED6 = [0.36, 0.066, 0.052, 6];
+var P_DECK = [0.52, 0.40, 0.25, 1], P_GOLD = [0.85, 0.58, 0.18, 3], P_IRON = [0.07, 0.07, 0.08, 2], P_MAST = [0.38, 0.25, 0.13, 6];
+var P_SPAR = [0.17, 0.115, 0.07, 6], P_WOOD = [0.34, 0.21, 0.115, 6], P_DARKWOOD = [0.16, 0.10, 0.06, 6], P_REDIN = [0.42, 0.09, 0.06, 6];
+var P_CREAM = [0.66, 0.60, 0.48, 6], P_GLASS = [1.0, 0.62, 0.25, 4], P_BLACK = [0.01, 0.01, 0.012, 5], P_RAIL = [0.50, 0.34, 0.17, 6], P_CANVAS = [0.62, 0.55, 0.42, 6];
+var DK_W = 3.6, DK_FC = 5.0, DK_QD = 5.45, DK_PP = 7.05, S_PP = 0.179, S_QD = 0.348, S_FC = 0.68, INB = 0.16;
+
+function buildShip() {
+  var M = new Mesh(), ropes = [], sails = [], lamps = [], glows = [], keys = {}, i, j;
+  var IDENT = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+  var SIDES = [1, -1];
+  var WARM = [1.0, 0.55, 0.2];
+
+  function rope(a, b, r, sag) {
+    if (sag) {
+      var prev = a;
+      for (var q = 1; q <= 8; q++) { var t = q / 8, p = lerp3(a, b, t); p[1] -= sag * 4 * t * (1 - t); ropes.push([prev, p, r]); prev = p; }
+    } else { ropes.push([a, b, r]); }
+  }
+  function glow(p, size, col) { glows.push({ p: p, s: size, c: col, k: (glows.length * 0.37 + 0.11) % 1 }); }
+  function sframe(x, y, side) {
+    var s = clamp(hs(x, y), 0.001, 0.999), P = hp(s, y, side), n = hn(s, y, side);
+    var t = norm(sub(hp(Math.min(1, s + 0.01), y, side), hp(Math.max(0, s - 0.01), y, side)));
+    var u = cross(n, t);
+    if (u[1] < 0) { u = mul(u, -1); }
+    return { s: s, P: P, n: n, t: t, u: norm(u) };
+  }
+  function quadAt(c, ax, ay, ex, ey, n) {
+    var a = add(add(c, mul(ax, -ex)), mul(ay, -ey)), b = add(add(c, mul(ax, ex)), mul(ay, -ey));
+    var d = add(add(c, mul(ax, ex)), mul(ay, ey)), e = add(add(c, mul(ax, -ex)), mul(ay, ey));
+    M.quad(a, b, d, e, n);
+  }
+  function discAt(c, n, r, seg) {
+    var t = norm(cross(n, Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), b = cross(n, t);
+    for (var q = 0; q < seg; q++) {
+      var a0 = q / seg * PI * 2, a1 = (q + 1) / seg * PI * 2;
+      M.tri(c, add(c, add(mul(t, Math.cos(a0) * r), mul(b, Math.sin(a0) * r))), add(c, add(mul(t, Math.cos(a1) * r), mul(b, Math.sin(a1) * r))), n);
+    }
+  }
+  function sidePoint(x, side, out) {   // point on the rail line at station x
+    var s0 = clamp(hs(x, 5.5), 0.001, 0.999), ys = sheer(s0), s1 = clamp(hs(x, ys), 0.001, 0.999);
+    ys = sheer(s1);
+    return [x, ys + 0.1, side * (hw(s1, ys) + out)];
+  }
+
+  /* ---- hull skin ---- */
+  var NS = 72, sArr = [];
+  for (i = 0; i <= NS; i++) { sArr.push(1 - Math.pow(1 - i / NS, 1.45)); }
+  var ROW = [-2.6, -2.25, -1.7, -1.1, -0.5, 0.0, 0.3, 0.75, 1.25, 1.75, 2.25, 2.7, 3.05, 3.45, 3.9];
+  var NR = ROW.length + 4;
+  function rowY(jj, s) { if (jj < ROW.length) { return ROW[jj]; } return 3.9 + (sheer(s) - 3.9) * (jj - ROW.length + 1) / 4; }
+  var BAND = [P_TAR, P_TAR, P_TAR, P_TAR, P_TAR, P_BOOT, P_PLANK, P_PLANK, P_PLANK, P_PLANK, P_WALE, P_PLANK2, P_PLANK2, P_WALE, P_RED, P_RED, P_RED, P_TOPBAND];
+  SIDES.forEach(function (side) {
+    M.surf(NS, NR - 1, function (u, v, ii, jj) { var s = sArr[ii]; return hp(s, rowY(jj, s), side); }, function (ii, jj) { M.col(BAND[jj]); }, side < 0);
+  });
+  var TN = norm([-1, -0.40, 0]);
+  for (j = 0; j < NR - 1; j++) {
+    var ya = rowY(j, 0), yb = rowY(j + 1, 0), wa = hw(0, ya), wb = hw(0, yb);
+    M.col(j >= 11 ? P_RED : BAND[j]);
+    M.quad([xSt(ya), ya, wa], [xSt(ya), ya, -wa], [xSt(yb), yb, -wb], [xSt(yb), yb, wb], TN);
+  }
+  /* stem post and rudder */
+  var stem = [];
+  for (i = 0; i <= 14; i++) { var ysm = -2.6 + (sheer(1) + 0.25 + 2.6) * i / 14; stem.push([xBw(ysm) + 0.1, ysm, 0]); }
+  M.col(P_DARKWOOD); M.tube(stem, 0.17, 6, true, true);
+  var rx0 = xSt(-2.6), rx1 = xSt(1.5);
+  M.quad([rx0, -2.6, 0.13], [rx0 - 1.35, -2.6, 0.13], [rx1 - 0.95, 1.5, 0.13], [rx1, 1.5, 0.13], [0, 0, 1]);
+  M.quad([rx0, -2.6, -0.13], [rx0 - 1.35, -2.6, -0.13], [rx1 - 0.95, 1.5, -0.13], [rx1, 1.5, -0.13], [0, 0, -1]);
+  M.quad([rx0 - 1.35, -2.6, 0.13], [rx0 - 1.35, -2.6, -0.13], [rx1 - 0.95, 1.5, -0.13], [rx1 - 0.95, 1.5, 0.13], [-1, 0, 0]);
+  M.quad([rx1, 1.5, 0.13], [rx1 - 0.95, 1.5, 0.13], [rx1 - 0.95, 1.5, -0.13], [rx1, 1.5, -0.13], [0, 1, 0]);
+
+  /* ---- decks, bulkheads, bulwarks ---- */
+  function deck(sa, sb, yd, n) {
+    M.col(P_DECK);
+    for (var q = 0; q < n; q++) {
+      var s0 = sa + (sb - sa) * q / n, s1 = sa + (sb - sa) * (q + 1) / n;
+      var x0 = hx(s0, yd), x1 = hx(s1, yd), w0 = Math.max(0, hw(s0, yd) - INB), w1 = Math.max(0, hw(s1, yd) - INB);
+      M.quad([x0, yd, w0], [x1, yd, w1], [x1, yd, -w1], [x0, yd, -w0], [0, 1, 0]);
+    }
+  }
+  deck(0, S_PP, DK_PP, 8); deck(S_PP, S_QD, DK_QD, 8); deck(S_QD, S_FC, DK_W, 14); deck(S_FC, 0.994, DK_FC, 16);
+  function bquad(sb, dir, y0, y1, z0, z1, off) {
+    var xa = hx(sb, y0) + off * dir, xb = hx(sb, y1) + off * dir;
+    M.quad([xa, y0, z0], [xa, y0, z1], [xb, y1, z1], [xb, y1, z0], [dir, 0, 0]);
+  }
+  function bulk(sb, y0, y1, dir) {
+    M.col(P_PLANK2);
+    var steps = 3;
+    for (var q = 0; q < steps; q++) {
+      var ya2 = y0 + (y1 - y0) * q / steps, yb2 = y0 + (y1 - y0) * (q + 1) / steps;
+      var xa = hx(sb, ya2), xb = hx(sb, yb2), w0 = hw(sb, ya2) - INB * 0.5, w1 = hw(sb, yb2) - INB * 0.5;
+      M.quad([xa, ya2, -w0], [xa, ya2, w0], [xb, yb2, w1], [xb, yb2, -w1], [dir, 0, 0]);
+    }
+  }
+  function door(sb, dir, y0, z, lit) {
+    M.col(P_RAIL); bquad(sb, dir, y0, y0 + 1.62, z - 0.52, z + 0.52, 0.02);
+    M.col(P_DARKWOOD); bquad(sb, dir, y0 + 0.04, y0 + 1.54, z - 0.44, z + 0.44, 0.04);
+    if (lit) { M.col(P_GLASS); bquad(sb, dir, y0 + 1.06, y0 + 1.38, z - 0.2, z + 0.2, 0.06); }
+    M.col(P_GOLD); M.sphere([hx(sb, y0 + 0.8) + 0.08 * dir, y0 + 0.8, z + 0.33], 0.045, 6, 4);
+  }
+  function win(sb, dir, y0, y1, z, hwid) {
+    var ym = (y0 + y1) / 2;
+    M.col(P_GOLD); bquad(sb, dir, y0 - 0.07, y1 + 0.07, z - hwid - 0.07, z + hwid + 0.07, 0.02);
+    M.col(P_GLASS);
+    bquad(sb, dir, y0, ym - 0.02, z - hwid, z - 0.02, 0.045); bquad(sb, dir, y0, ym - 0.02, z + 0.02, z + hwid, 0.045);
+    bquad(sb, dir, ym + 0.02, y1, z - hwid, z - 0.02, 0.045); bquad(sb, dir, ym + 0.02, y1, z + 0.02, z + hwid, 0.045);
+  }
+  bulk(S_QD, DK_W, DK_QD, 1); bulk(S_PP, DK_QD, DK_PP, 1); bulk(S_FC, DK_W, DK_FC, -1);
+  door(S_QD, 1, DK_W, 0, true); win(S_QD, 1, 4.25, 4.8, 1.55, 0.3); win(S_QD, 1, 4.25, 4.8, -1.55, 0.3);
+  door(S_PP, 1, DK_QD, 0, true); win(S_PP, 1, 6.0, 6.5, 1.3, 0.26); win(S_PP, 1, 6.0, 6.5, -1.3, 0.26);
+  door(S_FC, -1, DK_W, 0, false);
+  function inner(sa, sb, yd, n) {
+    SIDES.forEach(function (side) {
+      for (var q = 0; q < n; q++) {
+        var s0 = sa + (sb - sa) * q / n, s1 = sa + (sb - sa) * (q + 1) / n, t0 = sheer(s0), t1 = sheer(s1);
+        var n0 = mul(hn(s0, (yd + t0) / 2, side), -1), n1 = mul(hn(s1, (yd + t1) / 2, side), -1);
+        M.quadN([hx(s0, yd), yd, side * Math.max(0, hw(s0, yd) - INB)], [hx(s1, yd), yd, side * Math.max(0, hw(s1, yd) - INB)],
+          [hx(s1, t1), t1, side * Math.max(0, hw(s1, t1) - INB)], [hx(s0, t0), t0, side * Math.max(0, hw(s0, t0) - INB)], n0, n1, n1, n0);
+      }
+    });
+  }
+  M.col(P_REDIN);
+  inner(0, S_PP, DK_PP, 8); inner(S_PP, S_QD, DK_QD, 8); inner(S_QD, S_FC, DK_W, 14); inner(S_FC, 0.994, DK_FC, 16);
+  /* cap rail */
+  SIDES.forEach(function (side) {
+    var n = 76;
+    M.col(P_RAIL);
+    for (var q = 0; q < n; q++) {
+      var s0 = 0.994 * q / n, s1 = 0.994 * (q + 1) / n, y0 = sheer(s0), y1 = sheer(s1);
+      var a0 = hp(s0, y0, 1), a1 = hp(s1, y1, 1), nn = hn(s0, y0, side);
+      var i0 = Math.max(0, a0[2] - 0.32), i1 = Math.max(0, a1[2] - 0.32), o0 = a0[2] + 0.10, o1 = a1[2] + 0.10;
+      M.quad([a0[0], y0 + 0.07, side * i0], [a1[0], y1 + 0.07, side * i1], [a1[0], y1 + 0.07, side * o1], [a0[0], y0 + 0.07, side * o0], [0, 1, 0]);
+      M.quad([a0[0], y0 - 0.08, side * o0], [a1[0], y1 - 0.08, side * o1], [a1[0], y1 + 0.07, side * o1], [a0[0], y0 + 0.07, side * o0], norm([nn[0], 0, nn[2]]));
+      M.quad([a0[0], y0 - 0.06, side * i0], [a1[0], y1 - 0.06, side * i1], [a1[0], y1 + 0.07, side * i1], [a0[0], y0 + 0.07, side * i0], [0, 0, -side]);
+    }
+  });
+  /* gilded mouldings along the hull */
+  function hullLine(yf, sa, sb, r, off, n, col) {
+    M.col(col);
+    SIDES.forEach(function (side) {
+      var pts = [];
+      for (var q = 0; q <= n; q++) { var s = sa + (sb - sa) * q / n, y = yf(s); pts.push(add(hp(s, y, side), mul(hn(s, y, side), off))); }
+      M.tube(pts, r, 4, true, true);
+    });
+  }
+  hullLine(function () { return 3.9; }, 0.0, 0.99, 0.07, 0.03, 64, P_GOLD);
+  hullLine(function (s) { return sheer(s) - 0.34; }, 0.0, 0.99, 0.055, 0.03, 64, P_GOLD);
+  hullLine(function () { return 2.72; }, 0.0, 0.985, 0.05, 0.02, 56, P_WALE);
+
+  /* ---- guns ---- */
+  function barrel(a, dir, len, r) {
+    var p = function (d) { return add(a, mul(dir, d)); };
+    M.col(P_IRON);
+    M.tube([p(0), p(len * 0.80), p(len * 0.84), p(len * 0.90), p(len)], [r * 1.15, r * 0.92, r * 1.2, r * 1.2, r * 1.12], 10, true, true);
+    M.col(P_BLACK); discAt(p(len + 0.006), dir, r * 0.55, 10);
+  }
+  SIDES.forEach(function (side) {
+    [-12.4, -9.1, -5.8, -2.5, 0.8, 4.1, 7.4, 10.6].forEach(function (gx) {
+      var f = sframe(gx, 1.82, side);
+      M.col([0.50, 0.34, 0.12, 6]); quadAt(add(f.P, mul(f.n, 0.02)), f.t, f.u, 0.46, 0.46, f.n);
+      M.col(P_BLACK); quadAt(add(f.P, mul(f.n, 0.04)), f.t, f.u, 0.36, 0.36, f.n);
+      var hinge = add(add(f.P, mul(f.u, 0.42)), mul(f.n, 0.06)), ld = norm(add(mul(f.n, 0.92), mul(f.u, 0.4)));
+      M.push(); M.frame(hinge, f.t, ld, cross(f.t, ld)); M.col(P_RED6); M.box(-0.38, 0, -0.035, 0.38, 0.74, 0.035); M.pop();
+      barrel(add(f.P, mul(f.n, -0.35)), f.n, 1.25, 0.15);
+    });
+  });
+  function cannon() {
+    M.col([0.33, 0.11, 0.07, 6]);
+    M.box(-0.36, 0.17, -0.80, 0.36, 0.33, 0.55);
+    M.box(-0.39, 0.33, -0.52, -0.27, 0.62, 0.45); M.box(0.27, 0.33, -0.52, 0.39, 0.62, 0.45);
+    M.box(-0.39, 0.33, -0.82, -0.27, 0.47, -0.52); M.box(0.27, 0.33, -0.82, 0.39, 0.47, -0.52);
+    M.col(P_DARKWOOD);
+    [-0.5, 0.32].forEach(function (wz) { [-1, 1].forEach(function (sx) { M.cyl([sx * 0.38, 0.17, wz], [sx * 0.50, 0.17, wz], 0.17, 0.17, 10, true); }); });
+    M.col(P_IRON);
+    M.tube([[0, 0.66, -1.0], [0, 0.66, -0.9], [0, 0.66, -0.82], [0, 0.66, -0.78], [0, 0.66, 0.0], [0, 0.66, 0.05], [0, 0.66, 0.1], [0, 0.66, 1.32], [0, 0.66, 1.38], [0, 0.66, 1.58]],
+      [0.12, 0.21, 0.235, 0.20, 0.18, 0.205, 0.172, 0.135, 0.168, 0.165], 12, true, true);
+    M.sphere([0, 0.66, -1.08], 0.085, 8, 6);
+    M.cyl([-0.42, 0.62, 0.0], [0.42, 0.62, 0.0], 0.05, 0.05, 6, true);
+    M.col(P_BLACK); discAt([0, 0.66, 1.586], [0, 0, 1], 0.085, 10);
+  }
+  [-3.2, -0.2, 2.8, 5.9].forEach(function (cx) {
+    SIDES.forEach(function (side) {
+      var yg = DK_W + 0.66, f = sframe(cx, yg, side), w = Math.abs(f.P[2]);
+      M.col(P_BLACK);
+      quadAt(add(f.P, mul(f.n, 0.03)), f.t, f.u, 0.3, 0.3, f.n);
+      quadAt([cx, yg, side * (w - INB - 0.03)], [1, 0, 0], [0, 1, 0], 0.3, 0.3, [0, 0, -side]);
+      M.push(); M.translate(cx, DK_W, side * (w - 1.25)); if (side < 0) { M.rotY(PI); } cannon(); M.pop();
+    });
+  });
+
+  /* ---- lanterns ---- */
+  function lantern(sc) {
+    M.col(P_IRON); M.lathe([[0, 0], [0.13 * sc, 0], [0.15 * sc, 0.05 * sc], [0.11 * sc, 0.09 * sc]], 6);
+    M.col(P_GLASS); M.lathe([[0.11 * sc, 0.09 * sc], [0.17 * sc, 0.15 * sc], [0.19 * sc, 0.42 * sc], [0.13 * sc, 0.5 * sc]], 6);
+    M.col(P_IRON); M.lathe([[0.21 * sc, 0.5 * sc], [0.215 * sc, 0.53 * sc], [0.07 * sc, 0.68 * sc], [0.03 * sc, 0.75 * sc], [0, 0.76 * sc]], 6);
+    for (var q = 0; q < 6; q++) {
+      var a = q / 6 * PI * 2, c = Math.cos(a), s = Math.sin(a);
+      M.cyl([0.18 * sc * c, 0.15 * sc, 0.18 * sc * s], [0.2 * sc * c, 0.42 * sc, 0.2 * sc * s], 0.014 * sc, 0.014 * sc, 4, false);
+    }
+    M.sphere([0, 0.79 * sc, 0], 0.04 * sc, 6, 4);
+    var c0 = M.tp([0, 0.3 * sc, 0]);
+    glow(c0, 0.9 + sc * 1.1, WARM);
+    return c0;
+  }
+
+  /* ---- stern ---- */
+  function sternQuad(y0, y1, z0, z1, off) {
+    var ax = xSt(y0) + TN[0] * off, bx = xSt(y1) + TN[0] * off, dy = TN[1] * off;
+    M.quad([ax, y0 + dy, z1], [ax, y0 + dy, z0], [bx, y1 + dy, z0], [bx, y1 + dy, z1], TN);
+  }
+  function sternWin(y0, y1, zc, hwid) {
+    var ym = (y0 + y1) / 2;
+    M.col(P_GOLD); sternQuad(y0 - 0.08, y1 + 0.08, zc - hwid - 0.08, zc + hwid + 0.08, 0.02);
+    M.col(P_GLASS);
+    sternQuad(y0, ym - 0.02, zc - hwid, zc - 0.02, 0.045); sternQuad(y0, ym - 0.02, zc + 0.02, zc + hwid, 0.045);
+    sternQuad(ym + 0.02, y1, zc - hwid, zc - 0.02, 0.045); sternQuad(ym + 0.02, y1, zc + 0.02, zc + hwid, 0.045);
+  }
+  [-2.0, -1.0, 0, 1.0, 2.0].forEach(function (z) { sternWin(4.2, 5.1, z, 0.36); });
+  [-1.35, -0.45, 0.45, 1.35].forEach(function (z) { sternWin(6.15, 6.9, z, 0.31); });
+  [3.92, 5.5, 7.3].forEach(function (y) { var w = hw(0, y) + 0.05; M.col(P_GOLD); M.tube([[xSt(y) - 0.06, y, -w], [xSt(y) - 0.06, y, w]], 0.075, 5, true, true); });
+  glow([xSt(4.65) - 0.5, 4.65, 0], 3.4, [0.8, 0.42, 0.15]);
+  glow([xSt(6.5) - 0.5, 6.5, 0], 2.6, [0.7, 0.36, 0.13]);
+  var yT = sheer(0), arch = [];
+  for (i = 0; i <= 10; i++) { var za = -2.1 + 4.2 * i / 10, yar = yT + 0.12 + 0.75 * (1 - Math.pow(za / 2.1, 2)); arch.push([xSt(yar) - 0.02, yar, za]); }
+  M.col(P_GOLD); M.tube(arch, 0.07, 6, true, true);
+  [-1.55, 0, 1.55].forEach(function (z, qi) {
+    var ybs = yT + 0.12 + 0.75 * (1 - Math.pow(z / 2.1, 2)), ph = qi === 1 ? 0.75 : 0.45, x = xSt(ybs) - 0.12;
+    M.col(P_IRON); M.cyl([x, ybs, z], [x, ybs + ph, z], 0.05, 0.04, 6, false);
+    M.push(); M.translate(x, ybs + ph, z); var lp = lantern(qi === 1 ? 2.0 : 1.6); M.pop();
+    if (qi === 1) { lamps.push({ p: [lp[0] + 0.6, lp[1] - 0.4, 0], k: 6.0 }); }
+  });
+  /* stern gallery */
+  var gy = 3.72, gx0 = xSt(gy) + 0.05, gx1 = xSt(gy) - 0.95, gw = hw(0, gy) - 0.05;
+  M.col(P_WOOD); M.box(gx1, gy - 0.1, -gw, gx0, gy, gw);
+  M.col(P_GOLD);
+  M.tube([[gx0 - 0.2, gy + 0.72, -gw], [gx1, gy + 0.72, -gw], [gx1, gy + 0.72, gw], [gx0 - 0.2, gy + 0.72, gw]], 0.05, 5, true, true);
+  for (var gz = -gw; gz <= gw + 0.001; gz += gw / 7) { M.cyl([gx1, gy, gz], [gx1, gy + 0.72, gz], 0.04, 0.035, 5, false); }
+  SIDES.forEach(function (side) { M.cyl([gx1 + 0.45, gy, side * gw], [gx1 + 0.45, gy + 0.72, side * gw], 0.04, 0.035, 5, false); });
+  /* quarter galleries */
+  SIDES.forEach(function (side) {
+    var x0 = -18.9, x1 = -15.6, y0 = 4.0, y1 = 6.5, wA = hw(clamp(hs(-17.2, 5.2), 0, 1), 5.2);
+    var za2 = side * (wA - 0.6), zb2 = side * (wA + 0.55), zmin = Math.min(za2, zb2), zmax = Math.max(za2, zb2);
+    M.col(P_RED6); M.box(x0, y0, zmin, x1, y1, zmax);
+    M.col(P_GOLD); M.box(x0 - 0.07, y1, zmin - (side < 0 ? 0.07 : 0), x1 + 0.07, y1 + 0.13, zmax + (side > 0 ? 0.07 : 0)); M.box(x0 - 0.07, y0 - 0.13, zmin - (side < 0 ? 0.07 : 0), x1 + 0.07, y0, zmax + (side > 0 ? 0.07 : 0));
+    M.col(P_TOPBAND); M.box(x0 + 0.2, y1 + 0.13, side > 0 ? zmin : zmin + 0.3, x1 - 0.2, y1 + 0.42, side > 0 ? zmax - 0.3 : zmax);
+    [-18.15, -17.25, -16.35].forEach(function (xc) {
+      M.col(P_GOLD); quadAt([xc, 5.3, zb2 + side * 0.02], [1, 0, 0], [0, 1, 0], 0.36, 0.52, [0, 0, side]);
+      M.col(P_GLASS); quadAt([xc, 5.3, zb2 + side * 0.04], [1, 0, 0], [0, 1, 0], 0.28, 0.44, [0, 0, side]);
+      M.col(P_GOLD); quadAt([xc, 5.3, zb2 + side * 0.05], [1, 0, 0], [0, 1, 0], 0.02, 0.44, [0, 0, side]); quadAt([xc, 5.3, zb2 + side * 0.05], [1, 0, 0], [0, 1, 0], 0.28, 0.02, [0, 0, side]);
+    });
+    glow([-17.25, 5.3, zb2 + side * 0.4], 2.6, [0.7, 0.36, 0.13]);
+  });
+
+  /* ---- bow ---- */
+  M.col(P_DARKWOOD);
+  M.tube([[xBw(2.4) - 0.1, 2.4, 0], [22.3, 3.6, 0], [23.7, 4.9, 0], [24.8, 6.1, 0]], [0.34, 0.30, 0.25, 0.20], 8, true, true);
+  M.quad([xBw(2.4), 2.4, 0.09], [23.7, 4.9, 0.09], [xBw(5.6), 5.6, 0.09], [xBw(4.0), 4.0, 0.09], [0, 0, 1]);
+  M.quad([xBw(2.4), 2.4, -0.09], [23.7, 4.9, -0.09], [xBw(5.6), 5.6, -0.09], [xBw(4.0), 4.0, -0.09], [0, 0, -1]);
+  M.col(P_GOLD);
+  var scroll = [], scrollR = [];
+  for (i = 0; i <= 26; i++) {
+    var sth = -2.3 + 7.6 * i / 26, srr = 0.66 - 0.54 * i / 26;
+    scroll.push([25.0 + srr * Math.cos(sth), 6.32 + srr * Math.sin(sth), 0]);
+    scrollR.push(0.21 - 0.13 * i / 26);
+  }
+  M.tube(scroll, scrollR, 8, true, true);
+  M.tube([[24.55, 5.85, 0], [24.1, 5.45, 0], [23.6, 5.1, 0]], [0.22, 0.27, 0.2], 8, false, false);
+  SIDES.forEach(function (side) {
+    M.col(P_GOLD);
+    M.tube([[24.7, 6.3, side * 0.25], [23.9, 6.55, side * 0.8], [22.9, 6.2, side * 1.05]], [0.12, 0.1, 0.04], 6, true, true);
+    var r1 = hp(0.93, 5.3, side), r2 = hp(0.95, 4.1, side);
+    M.tube([r1, [23.0, 5.05, side * 0.75], [24.7, 5.95, side * 0.16]], 0.08, 6, true, true);
+    M.col(P_WOOD);
+    M.tube([r2, [23.1, 4.2, side * 0.5], [24.4, 5.2, side * 0.12]], 0.07, 6, true, true);
+    var hf = sframe(19.6, 4.35, side);
+    M.col(P_BLACK); quadAt(add(hf.P, mul(hf.n, 0.03)), hf.t, hf.u, 0.2, 0.2, hf.n);
+    /* cathead and anchor */
+    var cf = sidePoint(17.4, side, 0), cw = Math.abs(cf[2]), cy = cf[1] + 0.02;
+    var c0 = side * (cw - 0.7), c1 = side * (cw + 1.25);
+    M.col(P_DARKWOOD); M.box(17.24, cy, Math.min(c0, c1), 17.56, cy + 0.26, Math.max(c0, c1));
+    var az = side * (cw + 1.08), ay = cy - 0.25;
+    rope([17.4, cy, az], [17.4, ay, az], 0.03);
+    M.col(P_IRON);
+    M.cyl([17.4, ay, az], [17.4, ay - 2.0, az], 0.07, 0.085, 6, true);
+    M.tube([[16.62, ay - 1.3, az], [16.92, ay - 1.82, az], [17.4, ay - 2.0, az], [17.88, ay - 1.82, az], [18.18, ay - 1.3, az]], [0.05, 0.07, 0.085, 0.07, 0.05], 6, true, true);
+    M.boxC(16.64, ay - 1.36, az, 0.2, 0.26, 0.05); M.boxC(18.16, ay - 1.36, az, 0.2, 0.26, 0.05);
+    M.col(P_DARKWOOD); M.cyl([17.4, ay - 0.22, az - 0.8], [17.4, ay - 0.22, az + 0.8], 0.075, 0.075, 6, true);
+  });
+  var bs = function (t) { return [14.6 + 18.9 * t, 5.55 + 5.31 * t, 0]; };
+  M.col(P_MAST); M.tube([bs(0), bs(0.5), bs(1)], [0.37, 0.30, 0.17], 10, true, true);
+  M.col(P_IRON);
+  [0.36, 0.42, 1.0].forEach(function (t) { var a = bs(t - 0.004), b = bs(t + 0.004), rr = 0.37 - 0.2 * t + 0.03; M.cyl(a, b, rr, rr, 10, true); });
+  var sy = bs(0.60); sy[1] -= 0.5;
+  M.col(P_SPAR); M.tube([[sy[0], sy[1], -5.0], [sy[0], sy[1], 0], [sy[0], sy[1], 5.0]], [0.07, 0.14, 0.07], 6, true, true);
+  M.col(P_CANVAS);
+  var furl = [];
+  for (i = 0; i <= 12; i++) { furl.push([sy[0] + 0.12, sy[1] + 0.16 + 0.03 * Math.sin(i * 2.1), -4.3 + 8.6 * i / 12]); }
+  M.tube(furl, [0.1, 0.17, 0.2, 0.18, 0.21, 0.19, 0.2, 0.19, 0.21, 0.18, 0.2, 0.17, 0.1], 7, true, true);
+  var dsA = bs(0.86), dsB = [dsA[0] - 0.3, dsA[1] - 2.4, 0];
+  M.col(P_SPAR); M.cyl(dsA, dsB, 0.07, 0.05, 6, true);
+  rope(dsB, bs(1), 0.03); rope(dsB, [xBw(1.6) + 0.2, 1.6, 0], 0.035); rope(bs(0.56), [xBw(0.9) + 0.2, 0.9, 0], 0.04);
+  SIDES.forEach(function (side) {
+    var f = sframe(17.2, 4.5, side);
+    rope(bs(0.93), add(f.P, mul(f.n, 0.1)), 0.03);
+    rope([sy[0], sy[1], side * 5.0], bs(0.97), 0.02); rope([sy[0], sy[1], side * 5.0], sidePoint(16.0, side, 0.1), 0.02);
+  });
+
+  /* ---- masts, yards, square sails, shrouds ---- */
+  function mast(name, mx, dk, rake, yaw, plat, top1, cross2, top3, yards, sailDefs) {
+    var XO = 0.42, K = { arms: [], clews: [] }, q, y;
+    M.push(); M.translate(mx, dk, 0); M.rotZ(rake); M.translate(0, -dk, 0);
+    var mm = M.m.slice();
+    K.at = function (x, yy, z) { return [mm[0] * x + mm[1] * yy + mm[2] * z + mm[3], mm[4] * x + mm[5] * yy + mm[6] * z + mm[7], mm[8] * x + mm[9] * yy + mm[10] * z + mm[11]]; };
+    K.mm = mm; K.XO = XO;
+    M.col(P_MAST);
+    M.tube([[0, dk - 0.9, 0], [0, (dk + top1) / 2, 0], [0, top1, 0]], [0.47, 0.42, 0.35], 12, false, true);
+    M.tube([[XO, plat - 1.5, 0], [XO, cross2, 0], [XO, top3, 0]], [0.30, 0.22, 0.085], 10, true, true);
+    M.col(P_IRON);
+    for (y = dk + 1.6; y < plat - 1.2; y += 2.4) { var rb = 0.47 - 0.12 * (y - dk) / (top1 - dk) + 0.03; M.cyl([0, y, 0], [0, y + 0.14, 0], rb, rb, 12, false); }
+    M.col(P_SPAR);
+    M.boxC(0.2, plat - 0.14, 0.45, 2.5, 0.22, 0.2); M.boxC(0.2, plat - 0.14, -0.45, 2.5, 0.22, 0.2);
+    M.boxC(-0.55, plat - 0.02, 0, 0.2, 0.14, 2.7); M.boxC(0.95, plat - 0.02, 0, 0.2, 0.14, 2.7);
+    M.col(P_WOOD); M.cyl([0.2, plat + 0.05, 0], [0.2, plat + 0.15, 0], 1.5, 1.5, 16, true);
+    M.col(P_SPAR);
+    var ring = [];
+    for (q = 0; q <= 16; q++) {
+      var a = q / 16 * PI * 2, rp = [0.2 + 1.42 * Math.cos(a), plat + 1.0, 1.42 * Math.sin(a)];
+      ring.push(rp);
+      if (q < 16 && q % 2 === 0) { M.cyl([rp[0], plat + 0.15, rp[2]], rp, 0.035, 0.035, 5, false); }
+    }
+    M.tube(ring, 0.04, 5, false, false);
+    M.boxC(0.21, top1 - 0.12, 0, 1.15, 0.22, 0.62);
+    M.boxC(XO, cross2, 0, 0.16, 0.12, 2.3); M.boxC(XO, cross2 - 0.12, 0.26, 1.2, 0.12, 0.12); M.boxC(XO, cross2 - 0.12, -0.26, 1.2, 0.12, 0.12);
+    M.col(P_GOLD); M.sphere([XO, top3 + 0.08, 0], 0.15, 8, 6);
+    /* yards and sails */
+    yards.forEach(function (yd, yi) {
+      var xo = yi === 0 ? 0 : XO, yy = yd[0], hl = yd[1], yw = yaw - yi * 0.035, rs = 0.75 + hl * 0.03;
+      M.push(); M.translate(xo, 0, 0); M.rotY(yw);
+      M.col(P_SPAR);
+      M.tube([[0.52, yy, -hl], [0.52, yy, -hl * 0.5], [0.52, yy, 0], [0.52, yy, hl * 0.5], [0.52, yy, hl]], [0.085 * rs, 0.15 * rs, 0.19 * rs, 0.15 * rs, 0.085 * rs], 8, true, true);
+      M.col(P_IRON); M.boxC(0.3, yy, 0, 0.5, 0.2, 0.34);
+      K.arms.push([M.tp([0.52, yy, -hl]), M.tp([0.52, yy, hl])]);
+      var sdf = sailDefs[yi];
+      if (sdf) {
+        var xs = 0.62, yh = yy - 0.27;
+        var c00 = M.tp([xs, sdf.foot, -sdf.wf]), c10 = M.tp([xs, sdf.foot, sdf.wf]), c01 = M.tp([xs, yh, -sdf.wh]), c11 = M.tp([xs, yh, sdf.wh]);
+        sails.push({ c: [c00, c10, c01, c11], n: M.tn([1, 0, 0]), depth: sdf.depth, phase: sails.length * 1.7 + 0.3, mode: 0, flut: 0.07,
+          col: [0.80, 0.72, 0.57], emb: sdf.emb || 0, embCol: [0.10, 0.07, 0.06], aspect: (sdf.wf + sdf.wh) / (yh - sdf.foot),
+          seams: Math.round((sdf.wf + sdf.wh) / 1.15), embScale: 0.72 });
+        K.clews.push([c00, c10]);
+        /* robands lashing the head of the sail to the yard */
+        M.col(P_DARKWOOD);
+        for (var rq = -6; rq <= 6; rq++) { M.boxC(0.56, yy - 0.12, sdf.wh * rq / 6.2, 0.08, 0.3, 0.05); }
+      } else {
+        K.clews.push(null);
+        M.col(P_CANVAS);
+        var fr = [], frr = [];
+        for (var fq = 0; fq <= 10; fq++) { fr.push([0.6, yy - 0.2 + 0.03 * Math.sin(fq * 2.3), -hl * 0.88 + hl * 1.76 * fq / 10]); frr.push(fq === 0 || fq === 10 ? 0.09 : 0.17 + 0.03 * Math.sin(fq * 1.7)); }
+        M.tube(fr, frr, 7, true, true);
+      }
+      M.pop();
+    });
+    /* shrouds, ratlines and channels */
+    SIDES.forEach(function (side) {
+      var tops = [], bots = [], n = 5, t;
+      for (q = 0; q < n; q++) {
+        var top = M.tp([0, plat - 0.3, side * 0.45]), bot = sidePoint(mx + 0.35 - q * 0.78, side, 0.34);
+        rope(top, bot, 0.035); tops.push(top); bots.push(bot);
+      }
+      for (q = 0; q < n - 1; q++) { for (t = 0.1; t < 0.93; t += 0.036) { rope(lerp3(bots[q], tops[q], t), lerp3(bots[q + 1], tops[q + 1], t), 0.016); } }
+      var tt = [], tb = [];
+      for (q = 0; q < 3; q++) {
+        var ta = M.tp([XO, cross2 - 0.15, side * 0.2]), tbp = M.tp([0.75 - q * 0.55, plat + 0.16, side * 1.36]);
+        rope(ta, tbp, 0.028); tt.push(ta); tb.push(tbp);
+        rope(tbp, M.tp([0, plat - 1.9, side * 0.36]), 0.025);
+      }
+      for (q = 0; q < 2; q++) { for (t = 0.1; t < 0.9; t += 0.06) { rope(lerp3(tb[q], tt[q], t), lerp3(tb[q + 1], tt[q + 1], t), 0.014); } }
+      /* backstays */
+      rope(M.tp([XO, cross2 - 0.1, side * 0.15]), sidePoint(mx - 4.4, side, 0.3), 0.03);
+      rope(M.tp([XO, top3 - 0.6, side * 0.08]), sidePoint(mx - 5.2, side, 0.3), 0.024);
+      /* lifts */
+      K.arms.forEach(function (arm, yi) {
+        var tgt = yi === 0 ? M.tp([0.1, top1 - 0.3, 0]) : (yi === 1 ? M.tp([XO, cross2 - 0.1, 0]) : M.tp([XO, top3 - 0.7, 0]));
+        rope(arm[side > 0 ? 1 : 0], tgt, 0.02);
+      });
+      /* halyards to the fife rail */
+      rope(M.tp([0.2, plat, side * 1.0]), [mx - 0.9, dk + 0.92, side * 0.8], 0.02);
+      rope(M.tp([0.5, plat, side * 0.6]), [mx + 0.9, dk + 0.92, side * 0.8], 0.02);
+      /* chain plate board and deadeyes (ship space) */
+      var keep = M.m; M.m = IDENT.slice();
+      M.col(P_IRON);
+      bots.forEach(function (b) { M.sphere([b[0], b[1] - 0.02, b[2]], 0.1, 6, 4); });
+      var zc0 = Math.abs(bots[0][2]) - 0.5, zc1 = Math.abs(bots[0][2]) + 0.1;
+      M.col(P_DARKWOOD);
+      M.box(bots[n - 1][0] - 0.35, bots[0][1] - 0.22, side > 0 ? zc0 : -zc1, bots[0][0] + 0.35, bots[0][1] - 0.1, side > 0 ? zc1 : -zc0);
+      M.m = keep;
+    });
+    /* fife rail at the foot of the mast (ship space, deck is level) */
+    var keep2 = M.m; M.m = IDENT.slice();
+    M.col(P_WOOD);
+    [[-0.9, 0.8], [-0.9, -0.8], [0.9, 0.8], [0.9, -0.8]].forEach(function (pq) { M.cyl([mx + pq[0], dk, pq[1]], [mx + pq[0], dk + 0.92, pq[1]], 0.07, 0.06, 6, true); });
+    M.tube([[mx + 0.9, dk + 0.92, 0.8], [mx - 0.9, dk + 0.92, 0.8]], 0.06, 5, true, true);
+    M.tube([[mx + 0.9, dk + 0.92, -0.8], [mx - 0.9, dk + 0.92, -0.8]], 0.06, 5, true, true);
+    M.tube([[mx - 0.9, dk + 0.92, -0.8], [mx - 0.9, dk + 0.92, 0.8]], 0.06, 5, true, true);
+    M.m = keep2;
+    M.pop();
+    keys[name] = K;
+  }
+  mast('main', -0.5, DK_W, 0.035, -0.31, 17.2, 18.6, 28.0, 37.2, [[15.0, 9.8], [24.6, 7.2], [32.0, 4.9]],
+    [{ foot: 6.5, wf: 9.4, wh: 9.3, depth: 2.3 }, { foot: 15.7, wf: 9.2, wh: 6.9, depth: 1.8, emb: 1 }, { foot: 25.6, wf: 6.8, wh: 4.6, depth: 1.15 }]);
+  mast('fore', 10.6, DK_FC, 0.02, -0.28, 15.6, 16.9, 25.2, 33.0, [[13.9, 8.8], [22.4, 6.5], [28.9, 4.4]],
+    [{ foot: 7.4, wf: 8.5, wh: 8.3, depth: 2.0 }, { foot: 14.6, wf: 8.3, wh: 6.2, depth: 1.6 }, { foot: 23.5, wf: 6.1, wh: 4.1, depth: 1.0 }]);
+  mast('mizzen', -10.6, DK_QD, 0.055, -0.34, 15.2, 16.4, 23.4, 28.6, [[13.6, 6.0], [20.8, 4.7]],
+    [null, { foot: 14.3, wf: 5.7, wh: 4.4, depth: 1.25 }]);
+  var KM = keys.main, KF = keys.fore, KZ = keys.mizzen;
+
+  /* ---- stays ---- */
+  var jibStayTop = KF.at(0.42, 23.65, 0), jibStayLow = KF.at(0, 15.1, 0), bEnd = bs(0.93), bMid = bs(0.56);
+  rope(jibStayTop, bEnd, 0.035); rope(jibStayLow, bMid, 0.04);
+  rope(KF.at(0.42, 30.1, 0), bs(1.0), 0.026);
+  rope(KM.at(0, 16.7, 0), [9.7, DK_FC + 1.3, 0], 0.045);
+  rope(KM.at(0.42, 25.85, 0), KF.at(0.2, 15.9, 0), 0.035);
+  rope(KM.at(0.42, 33.2, 0), KF.at(0.42, 25.3, 0), 0.026);
+  rope(KZ.at(0, 14.7, 0), KM.at(-0.5, 8.6, 0), 0.04);
+  rope(KZ.at(0.42, 22.05, 0), KM.at(0, 17.4, 0), 0.03);
+  /* ---- braces, sheets and tacks ---- */
+  SIDES.forEach(function (side) {
+    var ix = side > 0 ? 1 : 0;
+    KM.arms.forEach(function (arm, yi) { rope(arm[ix], sidePoint(-8.6 - yi * 0.8, side, 0.1), 0.02, 0.5); });
+    KF.arms.forEach(function (arm, yi) { rope(arm[ix], sidePoint(7.2 - yi * 0.5, side, 0.1), 0.02, 0.3); });
+    KZ.arms.forEach(function (arm, yi) { rope(arm[ix], sidePoint(-16.0 - yi * 0.6, side, 0.1), 0.02, 0.3); });
+    [KM, KF].forEach(function (K) {
+      var cl = K.clews[0][ix];
+      rope(cl, sidePoint(cl[0] - 6.0, side, 0.1), 0.028, 0.4);
+      rope(cl, sidePoint(Math.min(cl[0] + 4.5, 18.5), side, 0.1), 0.028, 0.2);
+      if (K.clews[1]) { rope(K.clews[1][ix], K.arms[0][ix], 0.022); }
+      if (K.clews[2]) { rope(K.clews[2][ix], K.arms[1][ix], 0.02); }
+    });
+    rope(KZ.clews[1][ix], KZ.arms[0][ix], 0.02);
+  });
+
+  /* ---- jibs ---- */
+  var j1t = lerp3(bEnd, jibStayTop, 0.07), j1h = lerp3(bEnd, jibStayTop, 0.80), j1c = [18.2, 9.3, 2.4];
+  sails.push({ c: [j1t, j1c, j1h, j1h], n: norm([0.25, 0, 1]), depth: 0.95, phase: 4.1, mode: 1, flut: 0.07, col: [0.78, 0.70, 0.56], emb: 0, embCol: [0, 0, 0], aspect: 1, seams: 9, embScale: 1 });
+  var j2t = lerp3(bMid, jibStayLow, 0.08), j2h = lerp3(bMid, jibStayLow, 0.70), j2c = [15.4, 7.9, 1.2];
+  sails.push({ c: [j2t, j2c, j2h, j2h], n: norm([0.25, 0, 1]), depth: 0.7, phase: 2.2, mode: 1, flut: 0.06, col: [0.76, 0.68, 0.54], emb: 0, embCol: [0, 0, 0], aspect: 1, seams: 7, embScale: 1 });
+  rope(j1c, sidePoint(12.6, 1, 0.1), 0.022, 0.25); rope(j2c, sidePoint(11.4, 1, 0.1), 0.022, 0.15);
+
+  /* ---- spanker (gaff sail on the mizzen) ---- */
+  M.push(); M.m = KZ.mm.slice(); M.rotY(0.33);
+  M.col(P_SPAR);
+  M.tube([[-0.5, 8.7, 0], [-9.6, 9.2, 0]], [0.16, 0.11], 8, true, true);
+  M.tube([[-0.5, 13.2, 0], [-8.3, 16.6, 0]], [0.13, 0.08], 8, true, true);
+  var spT = M.tp([-0.62, 8.95, 0]), spH = M.tp([-0.62, 13.0, 0]), spP = M.tp([-8.1, 16.3, 0]), spC = M.tp([-9.3, 9.42, 0]);
+  var boomEnd = M.tp([-9.6, 9.2, 0]), gaffEnd = M.tp([-8.3, 16.6, 0]), gaffMid = M.tp([-4.4, 14.9, 0]);
+  sails.push({ c: [spT, spC, spH, spP], n: M.tn([0, 0, 1]), depth: 1.15, phase: 5.3, mode: 1, flut: 0.06, col: [0.79, 0.71, 0.56], emb: 0, embCol: [0, 0, 0], aspect: 1.2, seams: 8, embScale: 1 });
+  M.pop();
+  rope(boomEnd, KZ.at(0, 16.2, 0), 0.022); rope(gaffMid, KZ.at(0, 16.3, 0), 0.022); rope(gaffEnd, KZ.at(0.42, 22.0, 0), 0.02);
+  rope(boomEnd, [xSt(yT) + 0.2, yT + 0.2, 1.2], 0.025, 0.2);
+  SIDES.forEach(function (side) { rope(gaffEnd, sidePoint(-19.6, side, 0.0), 0.018, 0.4); });
+
+  /* ---- flags ---- */
+  var fdir = norm([0.86, -0.06, 0.5]);
+  function flag(K, yTop, hoist, len, droop, amp, col, emb, taper) {
+    var a0 = K.at(K.XO + 0.12, yTop - hoist, 0), a1 = K.at(K.XO + 0.12, yTop, 0);
+    var e0 = add(add(a0, mul(fdir, len)), [0, -droop, 0]), e1 = add(add(a1, mul(fdir, len)), [0, -droop, 0]);
+    if (taper) { e0 = lerp3(e0, e1, 0.5); e1 = e0; }
+    sails.push({ c: [a0, e0, a1, e1], n: norm(cross(fdir, [0, 1, 0])), depth: amp, phase: sails.length * 2.3, mode: 2, flut: amp * 0.8, col: col, emb: emb, embCol: [0.85, 0.82, 0.74], aspect: len / hoist, seams: 1, embScale: 0.80 });
+  }
+  flag(KM, 36.9, 2.7, 4.4, 0.35, 0.42, [0.022, 0.022, 0.028], 1, false);
+  flag(KF, 32.8, 0.75, 6.5, 0.7, 0.55, [0.55, 0.05, 0.04], 0, true);
+  flag(KZ, 28.4, 0.65, 5.0, 0.55, 0.5, [0.55, 0.05, 0.04], 0, true);
+
+  /* ---- railings, stairs, deck furniture ---- */
+  function balus(a, b, h, spacing) {
+    var d = sub(b, a), len = Math.sqrt(dot(d, d)), n = Math.max(1, Math.round(len / spacing));
+    M.col(P_RAIL);
+    for (var q = 0; q <= n; q++) { var p = lerp3(a, b, q / n); M.cyl(p, [p[0], p[1] + h, p[2]], 0.045, 0.035, 5, false); }
+    M.tube([[a[0], a[1] + h, a[2]], [b[0], b[1] + h, b[2]]], 0.06, 6, true, true);
+    M.tube([[a[0], a[1] + h * 0.5, a[2]], [b[0], b[1] + h * 0.5, b[2]]], 0.03, 4, false, false);
+  }
+  function stairs(x0, y0, x1, y1, zc, wd, n) {
+    M.col(P_WOOD);
+    for (var q = 0; q < n; q++) {
+      var x = x0 + (x1 - x0) * (q + 0.5) / n, y = y0 + (y1 - y0) * (q + 1) / (n + 1);
+      M.boxC(x, y, zc, Math.abs(x1 - x0) / n + 0.06, 0.06, wd);
+    }
+    M.col(P_DARKWOOD);
+    [-1, 1].forEach(function (e) { M.tube([[x0, y0, zc + e * wd / 2], [x1, y1, zc + e * wd / 2]], 0.055, 4, true, true); });
+  }
+  var xq = hx(S_QD, DK_QD) + 0.1, wq = hw(S_QD, DK_QD) - INB - 0.06;
+  balus([xq, DK_QD, -2.15], [xq, DK_QD, 2.15], 0.9, 0.43);
+  SIDES.forEach(function (side) { balus([xq, DK_QD, side * 3.3], [xq, DK_QD, side * wq], 0.9, 0.4); stairs(-3.85, DK_W, hx(S_QD, DK_QD) + 0.05, DK_QD, side * 2.72, 0.95, 7); });
+  var xp = hx(S_PP, DK_PP) + 0.1, wp = hw(S_PP, DK_PP) - INB - 0.06;
+  balus([xp, DK_PP, -1.9], [xp, DK_PP, 1.9], 0.9, 0.42);
+  SIDES.forEach(function (side) { if (wp > 3.2) { balus([xp, DK_PP, side * 2.95], [xp, DK_PP, side * wp], 0.9, 0.4); } stairs(-11.15, DK_QD, hx(S_PP, DK_PP) + 0.05, DK_PP, side * 2.42, 0.85, 6); });
+  var xf = hx(S_FC, DK_FC) - 0.1, wf = hw(S_FC, DK_FC) - INB - 0.06;
+  balus([xf, DK_FC, -2.05], [xf, DK_FC, 2.05], 0.9, 0.43);
+  SIDES.forEach(function (side) { balus([xf, DK_FC, side * 3.15], [xf, DK_FC, side * wf], 0.9, 0.4); stairs(6.95, DK_W, hx(S_FC, DK_FC) - 0.05, DK_FC, side * 2.6, 0.9, 5); });
+  function sideRail(sa, sb, n) {
+    SIDES.forEach(function (side) {
+      var pts = [];
+      M.col(P_RAIL);
+      for (var q = 0; q <= n; q++) {
+        var s = sa + (sb - sa) * q / n, y = sheer(s), p = hp(s, y, 1);
+        var b = [p[0], y + 0.07, side * Math.max(0.02, p[2] - 0.1)], t = [b[0], b[1] + 0.5, b[2]];
+        pts.push(t); M.cyl(b, t, 0.04, 0.03, 5, false);
+      }
+      M.tube(pts, 0.05, 5, true, true);
+    });
+  }
+  sideRail(0.004, 0.335, 16); sideRail(0.70, 0.975, 12);
+
+  /* ship's wheel, binnacle, skylight */
+  M.col(P_WOOD); M.box(-9.3, DK_QD, -0.14, -9.05, DK_QD + 0.95, 0.14);
+  var wc = [-8.9, DK_QD + 1.05, 0], wr = [];
+  for (i = 0; i <= 18; i++) { var aw = i / 18 * PI * 2; wr.push([wc[0], wc[1] + 0.56 * Math.cos(aw), 0.56 * Math.sin(aw)]); }
+  M.col([0.42, 0.25, 0.11, 6]); M.tube(wr, 0.045, 5, false, false);
+  for (i = 0; i < 8; i++) { var a2 = i / 8 * PI * 2; M.cyl(wc, [wc[0], wc[1] + 0.78 * Math.cos(a2), 0.78 * Math.sin(a2)], 0.028, 0.022, 4, true); }
+  M.cyl([-9.1, wc[1], 0], [-8.85, wc[1], 0], 0.07, 0.07, 6, true);
+  M.col(P_GOLD); M.sphere([-8.84, wc[1], 0], 0.09, 8, 6);
+  M.col(P_WOOD); M.box(-8.25, DK_QD, -0.22, -7.9, DK_QD + 0.8, 0.22);
+  M.push(); M.translate(-8.07, DK_QD + 0.8, 0); var lampBin = lantern(0.55); M.pop();
+  M.col(P_WOOD); M.box(-7.3, DK_QD, -0.6, -6.0, DK_QD + 0.3, 0.6);
+  M.tri([-7.3, DK_QD + 0.3, 0.6], [-7.3, DK_QD + 0.3, -0.6], [-7.3, DK_QD + 0.64, 0], [-1, 0, 0]);
+  M.tri([-6.0, DK_QD + 0.3, 0.6], [-6.0, DK_QD + 0.3, -0.6], [-6.0, DK_QD + 0.64, 0], [1, 0, 0]);
+  M.col(P_GLASS);
+  M.quad([-7.25, DK_QD + 0.3, 0.57], [-6.05, DK_QD + 0.3, 0.57], [-6.05, DK_QD + 0.62, 0.0], [-7.25, DK_QD + 0.62, 0.0], norm([0, 0.87, 0.5]));
+  M.quad([-7.25, DK_QD + 0.3, -0.57], [-6.05, DK_QD + 0.3, -0.57], [-6.05, DK_QD + 0.62, 0.0], [-7.25, DK_QD + 0.62, 0.0], norm([0, 0.87, -0.5]));
+  M.col(P_DARKWOOD); M.tube([[-7.32, DK_QD + 0.64, 0], [-5.98, DK_QD + 0.64, 0]], 0.04, 4, true, true);
+  [-6.85, -6.45].forEach(function (x) { M.tube([[x, DK_QD + 0.31, 0.6], [x, DK_QD + 0.655, 0], [x, DK_QD + 0.31, -0.6]], 0.025, 4, false, false); });
+  glow([-6.65, DK_QD + 0.75, 0], 1.7, [0.6, 0.32, 0.12]);
+
+  /* cargo hatch with the ship's boat stowed on top */
+  M.col(P_WOOD); M.box(2.2, DK_W, -1.3, 6.2, DK_W + 0.26, 1.3);
+  M.col([0.10, 0.075, 0.05, 1]); M.quad([2.35, DK_W + 0.265, 1.15], [6.05, DK_W + 0.265, 1.15], [6.05, DK_W + 0.265, -1.15], [2.35, DK_W + 0.265, -1.15], [0, 1, 0]);
+  M.col(P_DARKWOOD); M.box(2.9, DK_W + 0.26, -0.9, 3.1, DK_W + 0.5, 0.9); M.box(5.3, DK_W + 0.26, -0.9, 5.5, DK_W + 0.5, 0.9);
+  var boatY = DK_W + 0.5;
+  M.surf(14, 8, function (u, v) {
+    var k = Math.sin(PI * clamp(u, 0.02, 0.98)), bw = 0.92 * Math.pow(k, 0.6), bh = 0.82 * Math.pow(k, 0.35), ph = (v - 0.5) * PI;
+    return [1.75 + 4.9 * u, boatY + bh * Math.cos(ph), bw * Math.sin(ph)];
+  }, function () { M.col(P_CREAM); }, true);
+  M.col(P_DARKWOOD);
+  var keelB = [];
+  for (i = 0; i <= 10; i++) { var ub = 0.03 + 0.94 * i / 10; keelB.push([1.75 + 4.9 * ub, boatY + 0.82 * Math.pow(Math.sin(PI * ub), 0.35) + 0.02, 0]); }
+  M.tube(keelB, 0.05, 4, true, true);
+
+  /* capstan */
+  M.push(); M.translate(-3.3, DK_W, 0);
+  M.col(P_DARKWOOD); M.lathe([[0, 0], [0.52, 0], [0.52, 0.12], [0.30, 0.2], [0.26, 0.74], [0.42, 0.84], [0.42, 1.04], [0.2, 1.1], [0, 1.1]], 10);
+  M.col(P_WOOD);
+  for (i = 0; i < 6; i++) { var ac = i / 6 * PI * 2 + 0.3; M.cyl([0.38 * Math.cos(ac), 0.94, 0.38 * Math.sin(ac)], [1.15 * Math.cos(ac), 0.94, 1.15 * Math.sin(ac)], 0.045, 0.035, 5, true); }
+  M.pop();
+
+  /* barrels and crates */
+  function cask(x, y, z, sc) {
+    M.push(); M.translate(x, y, z);
+    M.col([0.36, 0.23, 0.12, 6]); M.lathe([[0, 0], [0.30 * sc, 0], [0.36 * sc, 0.25 * sc], [0.38 * sc, 0.48 * sc], [0.36 * sc, 0.70 * sc], [0.30 * sc, 0.95 * sc], [0, 0.95 * sc]], 10);
+    M.col(P_IRON);
+    [[0.325, 0.10], [0.385, 0.47], [0.325, 0.83]].forEach(function (hq) { M.lathe([[hq[0] * sc, hq[1] * sc], [hq[0] * sc, (hq[1] + 0.05) * sc]], 10); });
+    M.pop();
+  }
+  function crate(x, y, z, sx, sy, sz, rot) {
+    M.push(); M.translate(x, y, z); M.rotY(rot);
+    M.col([0.40, 0.28, 0.16, 6]); M.box(-sx / 2, 0, -sz / 2, sx / 2, sy, sz / 2);
+    M.col(P_DARKWOOD); M.box(-sx / 2 - 0.02, sy * 0.42, -sz / 2 - 0.02, sx / 2 + 0.02, sy * 0.58, sz / 2 + 0.02);
+    M.pop();
+  }
+  cask(-4.75, DK_W, 1.25, 1.0); cask(-4.7, DK_W, -1.2, 1.0); cask(-4.0, DK_W, -1.55, 0.9); cask(-4.72, DK_W + 0.95, -1.2, 0.72);
+  cask(7.6, DK_W, 0.95, 1.0); cask(7.55, DK_W, -1.0, 1.0); cask(6.85, DK_W, -1.3, 0.85);
+  crate(7.1, DK_W, 1.55, 0.9, 0.7, 0.9, 0.3); crate(7.75, DK_W, 1.9, 0.7, 0.55, 0.7, -0.2); crate(7.15, DK_W + 0.7, 1.55, 0.6, 0.5, 0.6, 0.6);
+  cask(-6.6, DK_QD, 3.2, 0.9); cask(-6.7, DK_QD, -3.25, 0.9); crate(-16.5, DK_PP, 1.6, 1.3, 0.6, 0.8, 0.1);
+  cask(13.6, DK_FC, 1.9, 0.9); crate(14.3, DK_FC, -1.5, 0.9, 0.6, 0.9, 0.5); cask(9.3, DK_FC, -2.9, 0.85);
+
+  /* bitts and belfry on the forecastle */
+  M.col(P_DARKWOOD);
+  SIDES.forEach(function (side) { M.box(15.55, DK_FC, side * 0.55 - 0.1, 15.8, DK_FC + 0.85, side * 0.55 + 0.1); });
+  M.box(15.6, DK_FC + 0.5, -0.9, 15.75, DK_FC + 0.66, 0.9);
+  M.col(P_WOOD);
+  SIDES.forEach(function (side) { M.cyl([8.95, DK_FC, side * 0.4], [8.95, DK_FC + 1.25, side * 0.4], 0.06, 0.05, 6, true); });
+  M.box(8.87, DK_FC + 1.25, -0.52, 9.03, DK_FC + 1.37, 0.52);
+  M.push(); M.translate(8.95, DK_FC + 0.72, 0);
+  M.col(P_GOLD); M.lathe([[0.0, 0.46], [0.06, 0.45], [0.1, 0.38], [0.12, 0.2], [0.17, 0.05], [0.2, 0.0]], 10);
+  M.pop();
+
+  /* side steps on the hull amidships */
+  SIDES.forEach(function (side) {
+    for (var q = 0; q < 7; q++) {
+      var f = sframe(1.2, 0.9 + q * 0.5, side);
+      M.col(P_DARKWOOD); M.push(); M.frame(add(f.P, mul(f.n, 0.06)), f.t, f.u, f.n); M.box(-0.32, -0.035, -0.06, 0.32, 0.035, 0.06); M.pop();
+    }
+  });
+
+  /* working lanterns */
+  var lampA = [];
+  SIDES.forEach(function (side) {
+    var x = hx(S_QD, 4.95) + 0.3;
+    M.col(P_IRON); M.cyl([x - 0.3, 5.2, side * 1.05], [x, 5.2, side * 1.05], 0.025, 0.025, 4, true);
+    M.push(); M.translate(x, 4.62, side * 1.05); lampA.push(lantern(0.72)); M.pop();
+    rope([x, 5.2, side * 1.05], [x, 5.17, side * 1.05], 0.02);
+  });
+  var xfl = hx(S_FC, 4.6) - 0.3, lampF, lampM;
+  SIDES.forEach(function (side) {
+    M.col(P_IRON); M.cyl([xfl + 0.3, 4.85, side * 1.2], [xfl, 4.85, side * 1.2], 0.025, 0.025, 4, true);
+    M.push(); M.translate(xfl, 4.28, side * 1.2); lampF = lantern(0.7); M.pop();
+  });
+  M.col(P_IRON); M.cyl([-1.0, 6.75, 0], [-1.55, 6.75, 0], 0.03, 0.03, 4, true);
+  M.push(); M.translate(-1.5, 6.1, 0); lampM = lantern(0.8); M.pop();
+  var bowL = sidePoint(17.4, 1, 0);
+  M.push(); M.translate(17.4, bowL[1] + 0.28, bowL[2] - 0.45); lantern(0.75); M.pop();
+  lamps.push({ p: [lampA[0][0] + 0.5, lampA[0][1], lampA[0][2]], k: 3.2 });
+  lamps.push({ p: [lampA[1][0] + 0.5, lampA[1][1], lampA[1][2]], k: 3.2 });
+  lamps.push({ p: [lampF[0] - 0.6, lampF[1] + 0.1, 0], k: 3.6 });
+  lamps.push({ p: [lampM[0] - 0.5, lampM[1], 0], k: 3.0 });
+  lamps.push({ p: [lampBin[0] - 0.3, lampBin[1] + 0.3, 0], k: 2.2 });
+
+  /* ---- pack buffers ---- */
+  var rb = new Float32Array(ropes.length * 54), o = 0;
+  ropes.forEach(function (r) {
+    var a = r[0], b = r[1], w = r[2];
+    var vv = [[a, b, 1, 1], [a, b, -1, -1], [b, a, -1, 1], [a, b, -1, -1], [b, a, 1, -1], [b, a, -1, 1]];
+    vv.forEach(function (q) {
+      rb[o++] = q[0][0]; rb[o++] = q[0][1]; rb[o++] = q[0][2];
+      rb[o++] = q[1][0]; rb[o++] = q[1][1]; rb[o++] = q[1][2];
+      rb[o++] = q[2]; rb[o++] = q[3]; rb[o++] = w;
+    });
+  });
+  var gb = new Float32Array(glows.length * 60), CORN = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
+  o = 0;
+  glows.forEach(function (g) {
+    CORN.forEach(function (c) {
+      gb[o++] = g.p[0]; gb[o++] = g.p[1]; gb[o++] = g.p[2];
+      gb[o++] = c[0]; gb[o++] = c[1]; gb[o++] = g.s; gb[o++] = g.k;
+      gb[o++] = g.c[0]; gb[o++] = g.c[1]; gb[o++] = g.c[2];
+    });
+  });
+  return { verts: new Float32Array(M.v), ropes: rb, glows: gb, sails: sails, lamps: lamps };
+}
+
+/* ------------------------------------------------------------------ */
+/* ocean grid, sail grid, spray                                        */
+/* ------------------------------------------------------------------ */
+function buildOcean() {
+  var radii = [0], i, j, SEG = 272, o = 0;
+  for (i = 1; i <= 228; i++) { radii.push(0.45 * (Math.pow(1.022, i) - 1) / 0.022); }
+  radii.push(4500, 7500, 13000, 24000);
+  var nr = radii.length, pos = new Float32Array(nr * (SEG + 1) * 2), idx = new Uint16Array((nr - 1) * SEG * 6);
+  for (i = 0; i < nr; i++) {
+    for (j = 0; j <= SEG; j++) { var a = j / SEG * PI * 2; pos[o++] = radii[i] * Math.cos(a); pos[o++] = radii[i] * Math.sin(a); }
+  }
+  o = 0;
+  for (i = 0; i < nr - 1; i++) {
+    for (j = 0; j < SEG; j++) {
+      var p = i * (SEG + 1) + j, q = p + SEG + 1;
+      idx[o++] = p; idx[o++] = q; idx[o++] = p + 1; idx[o++] = p + 1; idx[o++] = q; idx[o++] = q + 1;
+    }
+  }
+  return { pos: pos, idx: idx };
+}
+function buildGrid(nu, nv) {
+  var a = [], i, j;
+  for (i = 0; i < nu; i++) {
+    for (j = 0; j < nv; j++) {
+      var u0 = i / nu, u1 = (i + 1) / nu, v0 = j / nv, v1 = (j + 1) / nv;
+      a.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
+    }
+  }
+  return a;
+}
+function buildGulls(n) {
+  var a = [], seed = 2024, i, k;
+  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+  /* x: signed span, y: chord (forward), z: lift (body thickness) */
+  var W = [[0, 0.18, 0], [0.45, 0.14, 0], [0.45, -0.10, 0], [0, 0.18, 0], [0.45, -0.10, 0], [0, -0.16, 0], [0.45, 0.14, 0], [1.0, -0.02, 0], [0.45, -0.10, 0]];
+  var B = [[0, 0.42, 0], [0.07, 0.0, 0.03], [-0.07, 0.0, 0.03], [0.07, 0.0, 0.03], [0, -0.40, 0], [-0.07, 0.0, 0.03]];
+  for (i = 0; i < n; i++) {
+    var s = [rnd(), rnd(), rnd()];
+    for (k = 0; k < 9; k++) { a.push(s[0], s[1], s[2], W[k][0], W[k][1], W[k][2]); }
+    for (k = 0; k < 9; k++) { a.push(s[0], s[1], s[2], -W[k][0], W[k][1], W[k][2]); }
+    for (k = 0; k < 6; k++) { a.push(s[0], s[1], s[2], B[k][0], B[k][1], B[k][2]); }
+  }
+  return a;
+}
+function buildIsles() {
+  var a = [], seed = 77, G = 26, n, i, j;
+  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+  /* centre x, centre z, radius, height (water frame, metres) */
+  var defs = [[-3350, -1150, 520, 250], [-4100, -400, 330, 170], [-5600, -4600, 800, 330], [1800, -5200, 620, 240], [5200, 3600, 760, 300], [-900, 5200, 560, 230], [7300, -1500, 520, 210]];
+  for (n = 0; n < defs.length; n++) {
+    var d = defs[n], lat = [], H = [], P = [];
+    for (i = 0; i < 49; i++) { lat.push(rnd()); }
+    for (i = 0; i <= G; i++) {
+      H.push([]);
+      for (j = 0; j <= G; j++) {
+        var u = i / G * 2 - 1, v = j / G * 2 - 1, r2 = u * u + v * v;
+        var fx = (u * 0.5 + 0.5) * 5.999, fz = (v * 0.5 + 0.5) * 5.999, ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz;
+        tx = tx * tx * (3 - 2 * tx); tz = tz * tz * (3 - 2 * tz);
+        var nz = lat[iz * 7 + ix] * (1 - tx) * (1 - tz) + lat[iz * 7 + ix + 1] * tx * (1 - tz) + lat[(iz + 1) * 7 + ix] * (1 - tx) * tz + lat[(iz + 1) * 7 + ix + 1] * tx * tz;
+        var dome = Math.pow(Math.max(0, 1 - r2), 0.75);
+        H[i].push(d[3] * dome * (0.25 + 0.95 * nz * nz) );
+      }
+    }
+    for (i = 0; i <= G; i++) { P.push([]); for (j = 0; j <= G; j++) { P[i].push([(i / G * 2 - 1) * d[2], H[i][j], (j / G * 2 - 1) * d[2]]); } }
+    var nrm = function (ii, jj) {
+      var p0 = P[Math.max(ii - 1, 0)][jj], p1 = P[Math.min(ii + 1, G)][jj], q0 = P[ii][Math.max(jj - 1, 0)], q1 = P[ii][Math.min(jj + 1, G)];
+      return norm(cross(sub(q1, q0), sub(p1, p0)));
+    };
+    var put = function (ii, jj) { var p = P[ii][jj], nn = nrm(ii, jj); a.push(p[0], p[1], p[2], nn[0], nn[1], nn[2], d[0], d[1]); };
+    for (i = 0; i < G; i++) { for (j = 0; j < G; j++) { put(i, j); put(i + 1, j); put(i + 1, j + 1); put(i, j); put(i + 1, j + 1); put(i, j + 1); } }
+  }
+  return a;
+}
+function buildSpray(n) {
+  var a = [], seed = 4711, i, k, CORN = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
+  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+  for (i = 0; i < n; i++) {
+    var s = [rnd(), rnd(), rnd(), rnd()];
+    for (k = 0; k < 6; k++) { a.push(s[0], s[1], s[2], s[3], CORN[k][0], CORN[k][1]); }
+  }
+  return a;
+}
+
+/* ------------------------------------------------------------------ */
+/* scene state                                                         */
+/* ------------------------------------------------------------------ */
+var SUN_AZ = 220 * PI / 180, SUN_EL = 6.5 * PI / 180;
+var SUN = [Math.cos(SUN_EL) * Math.cos(SUN_AZ), Math.sin(SUN_EL), Math.cos(SUN_EL) * Math.sin(SUN_AZ)];
+var SUNCOL = [4.6, 2.3, 0.92];
+var DRAFT = 0.35, FOG = 0.00026, FOVY = 34 * PI / 180, NEAR = 2, FAR = 26000, SPEED = 7.0, GRAV = 9.81;
+var WAVE_DEF = [[84, 0.70, 58], [57, 0.48, -42], [36, 0.40, 84], [23, 0.28, 12], [14.5, 0.20, -66], [9.3, 0.13, 38], [6.1, 0.085, -15], [4.0, 0.055, 110],
+  [2.7, 0.030, 140], [1.9, 0.021, -100], [1.3, 0.0145, 30], [0.9, 0.010, -150]];
+var NW = WAVE_DEF.length;
+var WGT = [1, 1, 0.8, 0.4, 0.2, 0.1, 0, 0, 0, 0, 0, 0];
+var waves = WAVE_DEF.map(function (d, i) {
+  var k = 2 * PI / d[0], a = d[2] * PI / 180;
+  return { k: k, w: Math.sqrt(GRAV * k), dx: Math.cos(a), dz: Math.sin(a), a: d[1], len: d[0], ph0: i * 1.93 + 0.7, ph: 0 };
+});
+var waveA = new Float32Array(NW * 4), waveB = new Float32Array(NW * 4);
+function setWavePhases(t) {
+  for (var i = 0; i < NW; i++) {
+    var w = waves[i], r = (w.k * w.dx * SPEED - w.w) * t + w.ph0;
+    w.ph = r - Math.floor(r / (2 * PI)) * 2 * PI;
+  }
+}
+function waveH(x, z, n) {
+  var h = 0;
+  for (var i = 0; i < n; i++) { var w = waves[i]; h += w.a * WGT[i] * Math.sin(w.k * (w.dx * x + w.dz * z) + w.ph); }
+  return h;
+}
+function frac(x) { return x - Math.floor(x); }
+
+var W = 0, H = 0, quality = 1, ssMax = 1.0, targets = null, SHADOW = 2048;
+var cam = { yaw: 1.12, pitch: -0.095, dist: 82, vy: 0, vp: 0 };
+var drag = { on: false, x: 0, y: 0, id: -1, t: 0 };
+var motion = { heave: { x: 0, v: 0 }, pitch: { x: 0, v: 0 }, roll: { x: 0.05, v: 0 }, init: false };
+var spray = 0.5, lastImm = 0;
+var view = m4(), proj = m4(), vp = m4(), vpR = m4(), model = m4(), lightView = m4(), lightProj = m4(), lightMat = m4();
+var camPos = [80, 8, 40], camRight = [1, 0, 0], camUp = [0, 1, 0], camFwd = [0, 0, -1];
+var lampPos = new Float32Array(18), lampCol = new Float32Array(18), bowPos = [18.3, 0.3, 0];
+var time = 0, shadowBox = null;
+
+var progShip, progShipD, progSail, progSailD, progRope, progGlow, progSpray, progOcean, progSky, progGull, progIsle, progCopy, progBright, progDown, progBlur, progRays, progFinal, fancy = true;
+var noiseTex, hullTex, shadowT, ship, shipMesh, ropeMesh, glowMesh, sailMesh, sprayMesh, gullMesh, isleMesh, oceanMesh, oceanIdx, oceanCount, triMesh;
+
+function init() {
+  var i;
+  progShip = program(VS_SHIP, FS_SHIP, ['aPos', 'aNrm', 'aCol']);
+  progShipD = program(VS_SHIP, FS_DEPTH, ['aPos', 'aNrm', 'aCol']);
+  progSail = program(VS_SAIL, FS_SAIL, ['aUV']);
+  progSailD = program(VS_SAIL, FS_DEPTH, ['aUV']);
+  progRope = tryProgram(VS_ROPE, FS_ROPE, ['aPos', 'aOther', 'aSide']);
+  progGlow = tryProgram(VS_GLOW, FS_GLOW, ['aPos', 'aGlow', 'aCol']);
+  progSpray = tryProgram(VS_SPRAY, FS_SPRAY, ['aSeed', 'aCorner']);
+  progOcean = program(VS_OCEAN, FS_OCEAN, ['aPos']);
+  progSky = program(VS_SKY, FS_SKY, ['aPos']);
+  progGull = tryProgram(VS_GULL, FS_GULL, ['aSeed', 'aWing']);
+  progIsle = tryProgram(VS_ISLE, FS_ISLE, ['aPos', 'aNrm', 'aCen']);
+  progCopy = program(VS_POST, FS_COPY, ['aPos']);
+  progBright = tryProgram(VS_POST, FS_BRIGHT, ['aPos']);
+  progDown = tryProgram(VS_POST, FS_DOWN, ['aPos']);
+  progBlur = tryProgram(VS_POST, FS_BLUR, ['aPos']);
+  progRays = tryProgram(VS_POST, FS_RAYS, ['aPos']);
+  progFinal = tryProgram(VS_POST, FS_FINAL, ['aPos']);
+  fancy = !!(progBright && progDown && progBlur && progRays && progFinal);
+
+  noiseTex = buildNoise();
+  var lut = new Uint8Array(64 * 4);
+  for (i = 0; i < 64; i++) {
+    var x = -24 + 48 * (i + 0.5) / 64, s = hs(x, 0.0), w = (s > 0 && s < 1) ? hw(s, 0.0) : 0;
+    lut[i * 4] = Math.round(clamp(w / 6, 0, 1) * 255); lut[i * 4 + 1] = 0; lut[i * 4 + 2] = 0; lut[i * 4 + 3] = 255;
+  }
+  hullTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, hullTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 64, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  SHADOW = Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048);
+  /* software rasterisers start at a lower internal resolution */
+  var rname = String(gl.getParameter(gl.RENDERER) || '');
+  if (!rname || /webkit webgl/i.test(rname)) {
+    var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) { rname = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || ''); }
+  }
+  if (/swiftshader|llvmpipe|software|basic render/i.test(rname)) { quality = 0.62; SHADOW = Math.min(SHADOW, 1024); }
+  shadowT = makeTarget(SHADOW, SHADOW, true, gl.NEAREST);
+
+  ship = buildShip();
+  shipMesh = makeMesh(ship.verts, [3, 3, 4]);
+  ropeMesh = makeMesh(ship.ropes, [3, 3, 3]);
+  glowMesh = makeMesh(ship.glows, [3, 4, 3]);
+  sailMesh = makeMesh(buildGrid(22, 16), [2]);
+  sprayMesh = makeMesh(buildSpray(1500), [4, 2]);
+  gullMesh = makeMesh(buildGulls(11), [3, 3]);
+  isleMesh = makeMesh(buildIsles(), [3, 3, 2]);
+  triMesh = makeMesh([-1, -1, 3, -1, -1, 3], [2]);
+  var oc = buildOcean();
+  oceanMesh = makeMesh(oc.pos, [2]);
+  oceanIdx = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oceanIdx);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, oc.idx, gl.STATIC_DRAW);
+  oceanCount = oc.idx.length;
+}
+
+/* ------------------------------------------------------------------ */
+/* sizing and render targets                                           */
+/* ------------------------------------------------------------------ */
+function allocTargets() {
+  var k;
+  if (targets) { for (k in targets) { if (targets.hasOwnProperty(k)) { freeTarget(targets[k]); } } }
+  var sc = clamp(Math.sqrt(3300000 / (W * H)), 0.5, ssMax) * quality;
+  var sw = Math.max(16, Math.round(W * sc)), sh = Math.max(16, Math.round(H * sc));
+  function half(v, n) { return Math.max(2, v >> n); }
+  targets = {
+    scene: makeTarget(sw, sh, true, gl.LINEAR),
+    refl: makeTarget(half(sw, 1), half(sh, 1), true, gl.LINEAR),
+    b2: makeTarget(half(sw, 1), half(sh, 1), false, gl.LINEAR),
+    q0: makeTarget(half(sw, 2), half(sh, 2), false, gl.LINEAR),
+    q1: makeTarget(half(sw, 2), half(sh, 2), false, gl.LINEAR),
+    e0: makeTarget(half(sw, 3), half(sh, 3), false, gl.LINEAR),
+    e1: makeTarget(half(sw, 3), half(sh, 3), false, gl.LINEAR),
+    s0: makeTarget(half(sw, 4), half(sh, 4), false, gl.LINEAR),
+    s1: makeTarget(half(sw, 4), half(sh, 4), false, gl.LINEAR)
+  };
+}
+function resize() {
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cw = Math.max(1, Math.floor((canvas.clientWidth || window.innerWidth || 1) * dpr));
+  var ch = Math.max(1, Math.floor((canvas.clientHeight || window.innerHeight || 1) * dpr));
+  if (cw !== W || ch !== H || !targets) {
+    W = cw; H = ch;
+    canvas.width = W; canvas.height = H;
+    allocTargets();
+  }
+}
+/* Measures what a frame really costs (draw + sync) a few times after start-up and
+   lowers the internal resolution only if the GPU cannot keep up. */
+var perf = { frame: 0, tries: 0, phase: 0, done: false, cost: [], px: new Uint8Array(4) };
+function probe(t0) {
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, perf.px);
+  perf.cost.push(clock() - t0);
+  if (perf.cost.length < 3) { return; }
+  var m = Math.min(perf.cost[0], perf.cost[1], perf.cost[2]);
+  perf.cost = [];
+  if (perf.phase === 1) {
+    /* supersampling was switched on: keep it only if it is still cheap */
+    if (m > 15) { ssMax = 1.0; allocTargets(); }
+    perf.done = true;
+  } else if (m > 22 && quality > 0.56 && perf.tries < 4) {
+    quality = Math.max(0.55, quality * clamp(Math.sqrt(15 / m), 0.6, 0.85));
+    perf.tries++;
+    allocTargets();
+  } else if (m < 7 && quality === 1 && W * H < 3300000) {
+    ssMax = 1.5; perf.phase = 1;
+    allocTargets();
+  } else {
+    perf.done = true;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* input                                                               */
+/* ------------------------------------------------------------------ */
+function clock() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+function dragStart(x, y) { drag.on = true; drag.x = x; drag.y = y; drag.t = clock(); cam.vy = 0; cam.vp = 0; canvas.style.cursor = 'grabbing'; }
+function dragMove(x, y) {
+  if (!drag.on) { return; }
+  var dx = x - drag.x, dy = y - drag.y, now = clock(), dtm = clamp((now - drag.t) / 16.7, 0.5, 4);
+  drag.x = x; drag.y = y; drag.t = now;
+  cam.yaw += dx * 0.0055; cam.pitch += dy * 0.004;
+  cam.vy = clamp(cam.vy * 0.5 + dx * 0.0055 / dtm * 0.5, -0.06, 0.06);
+  cam.vp = clamp(cam.vp * 0.5 + dy * 0.004 / dtm * 0.5, -0.04, 0.04);
+}
+function dragEnd() {
+  if (clock() - drag.t > 90) { cam.vy = 0; cam.vp = 0; }
+  drag.on = false; drag.id = -1; canvas.style.cursor = 'grab';
+}
+if (window.PointerEvent) {
+  canvas.addEventListener('pointerdown', function (e) {
+    if (drag.on) { return; }
+    drag.id = e.pointerId;
+    try { canvas.setPointerCapture(e.pointerId); } catch (e1) { /* ignore */ }
+    dragStart(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', function (e) { if (e.pointerId === drag.id) { dragMove(e.clientX, e.clientY); } });
+  canvas.addEventListener('pointerup', function (e) { if (e.pointerId === drag.id) { dragEnd(); } });
+  canvas.addEventListener('pointercancel', function (e) { if (e.pointerId === drag.id) { dragEnd(); } });
+} else {
+  canvas.addEventListener('mousedown', function (e) { dragStart(e.clientX, e.clientY); e.preventDefault(); });
+  window.addEventListener('mousemove', function (e) { dragMove(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', function () { dragEnd(); });
+  canvas.addEventListener('touchstart', function (e) { if (e.touches.length) { dragStart(e.touches[0].clientX, e.touches[0].clientY); } e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchmove', function (e) { if (e.touches.length) { dragMove(e.touches[0].clientX, e.touches[0].clientY); } e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchend', function () { dragEnd(); });
+}
+canvas.addEventListener('wheel', function (e) {
+  cam.dist = clamp(cam.dist * Math.exp(clamp(e.deltaY, -200, 200) * 0.0012), 46, 230);
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+/* ------------------------------------------------------------------ */
+/* simulation                                                          */
+/* ------------------------------------------------------------------ */
+function spring(o, target, dt, w, z) {
+  var n = Math.max(1, Math.ceil(dt / 0.008)), h = dt / n;
+  for (var i = 0; i < n; i++) { o.v += (w * w * (target - o.x) - 2 * z * w * o.v) * h; o.x += o.v * h; }
+}
+function update(t, dt) {
+  var i;
+  time = t;
+  setWavePhases(t);
+  /* ship response to the swell */
+  var hb = waveH(15, 0, 6), ha = waveH(-15, 0, 6), hpt = waveH(0, -4.5, 6), hsb = waveH(0, 4.5, 6), hc = waveH(0, 0, 6);
+  var tH = (hb + ha + hpt + hsb + 2 * hc) / 6 * 0.9;
+  var tP = Math.atan2(hb - ha, 30) * 0.9 + 0.008 * Math.sin(t * 0.83 + 0.5);
+  var tR = Math.atan2(hpt - hsb, 9) * 0.7 + 0.05 + 0.014 * Math.sin(t * 0.57 + 1.3);
+  if (!motion.init || dt > 0.3 || dt < 0) {
+    motion.heave.x = tH; motion.pitch.x = tP; motion.roll.x = tR;
+    motion.heave.v = motion.pitch.v = motion.roll.v = 0; motion.init = true;
+  } else {
+    spring(motion.heave, tH, dt, 2.2, 0.8);
+    spring(motion.pitch, tP, dt, 2.0, 0.75);
+    spring(motion.roll, tR, dt, 1.5, 0.65);
+  }
+  var cp = Math.cos(motion.pitch.x), sp = Math.sin(motion.pitch.x), cr = Math.cos(motion.roll.x), sr = Math.sin(motion.roll.x);
+  model[0] = cp; model[1] = sp; model[2] = 0; model[3] = 0;
+  model[4] = -sp * cr; model[5] = cp * cr; model[6] = sr; model[7] = 0;
+  model[8] = sp * sr; model[9] = -cp * sr; model[10] = cr; model[11] = 0;
+  model[12] = 0; model[13] = motion.heave.x - DRAFT; model[14] = 0; model[15] = 1;
+
+  /* camera */
+  var sdt = clamp(dt, 0, 0.1) * 60;
+  if (!drag.on) {
+    cam.yaw += cam.vy * sdt; cam.pitch += cam.vp * sdt;
+    var damp = Math.pow(0.90, sdt);
+    cam.vy *= damp; cam.vp *= damp;
+  }
+  var aspect = W / H, D = cam.dist * Math.max(1, 1.5 / aspect);
+  var tgt = [5, 14 + motion.heave.x * 0.4, 0];
+  var pmin = Math.asin(clamp((3.2 - tgt[1]) / D, -1, 1));
+  cam.pitch = clamp(cam.pitch, pmin, 1.3);
+  var yaw = cam.yaw - 0.24 * Math.sin(0.07 * t), pitch = clamp(cam.pitch + 0.012 * Math.sin(0.13 * t + 1.0), pmin, 1.35);
+  camPos = [tgt[0] + D * Math.cos(pitch) * Math.cos(yaw), tgt[1] + D * Math.sin(pitch), tgt[2] + D * Math.cos(pitch) * Math.sin(yaw)];
+  m4look(view, camPos, tgt, [0, 1, 0]);
+  m4persp(proj, FOVY, aspect, NEAR, FAR);
+  m4mul(vp, proj, view);
+  for (i = 0; i < 16; i++) { vpR[i] = vp[i]; }
+  vpR[4] = -vp[4]; vpR[5] = -vp[5]; vpR[6] = -vp[6]; vpR[7] = -vp[7];
+  camRight = [view[0], view[4], view[8]];
+  camUp = [view[1], view[5], view[9]];
+  camFwd = [-view[2], -view[6], -view[10]];
+
+  /* shadow frustum fitted to the ship */
+  var c = m4point(model, [6, 17, 0]), eye = add(c, mul(SUN, 90));
+  m4look(lightView, eye, c, [0, 1, 0]);
+  if (!shadowBox) {
+    var mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9], bx = [-23.5, 35.5], by = [-3, 38.5], bz = [-12, 12], a, b, d, idm = m4();
+    m4look(idm, add([6, 17, 0], mul(SUN, 90)), [6, 17, 0], [0, 1, 0]);
+    for (a = 0; a < 2; a++) {
+      for (b = 0; b < 2; b++) {
+        for (d = 0; d < 2; d++) {
+          var q = m4point(idm, [bx[a], by[b], bz[d]]);
+          for (i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], q[i]); mx[i] = Math.max(mx[i], q[i]); }
+        }
+      }
+    }
+    shadowBox = [mn[0] - 4, mx[0] + 4, mn[1] - 4, mx[1] + 4, -mx[2] - 6, -mn[2] + 6];
+  }
+  m4ortho(lightProj, shadowBox[0], shadowBox[1], shadowBox[2], shadowBox[3], shadowBox[4], shadowBox[5]);
+  m4mul(lightMat, lightProj, lightView);
+
+  /* lamps */
+  for (i = 0; i < 6; i++) {
+    var L = ship.lamps[i], lp = m4point(model, L.p);
+    var fl = 0.88 + 0.12 * Math.sin(t * (6.1 + i * 1.3) + i * 2.1) * Math.sin(t * 2.7 + i);
+    lampPos[i * 3] = lp[0]; lampPos[i * 3 + 1] = lp[1]; lampPos[i * 3 + 2] = lp[2];
+    lampCol[i * 3] = 1.0 * L.k * fl; lampCol[i * 3 + 1] = 0.52 * L.k * fl; lampCol[i * 3 + 2] = 0.18 * L.k * fl;
+  }
+
+  /* waves */
+  var hk = Math.sqrt(Math.max(camPos[1], 3) / 6.4);
+  for (i = 0; i < NW; i++) {
+    var wv = waves[i];
+    waveA[i * 4] = wv.dx; waveA[i * 4 + 1] = wv.dz; waveA[i * 4 + 2] = wv.k; waveA[i * 4 + 3] = wv.a;
+    waveB[i * 4] = wv.ph; waveB[i * 4 + 1] = 1.0; waveB[i * 4 + 2] = wv.len * 10; waveB[i * 4 + 3] = 73 * Math.sqrt(wv.len) * hk;
+  }
+
+  /* bow spray follows how hard the bow is driving into the sea */
+  var bowShip = m4point(model, [18.6, 0, 0]), hBow = waveH(18.6, 0, 6) + 0.4, imm = hBow - bowShip[1];
+  var rate = (dt > 0 && dt < 0.3) ? (imm - lastImm) / dt : 0;
+  lastImm = imm;
+  var target = clamp(0.55 + imm * 1.2 + rate * 0.9, 0.15, 1.4);
+  spray += (target - spray) * clamp(dt * 3, 0, 1);
+  bowPos = [18.3, hBow + 0.1, 0];
+}
+
+/* ------------------------------------------------------------------ */
+/* drawing                                                             */
+/* ------------------------------------------------------------------ */
+var cloudOff = [0, 0];
+function setCommon(pr, refl) {
+  gl.uniform3fv(U(pr, 'uSunDir'), SUN);
+  gl.uniform3fv(U(pr, 'uSunCol'), SUNCOL);
+  gl.uniform3fv(U(pr, 'uCamPos'), camPos);
+  gl.uniform1f(U(pr, 'uTime'), time);
+  gl.uniform1f(U(pr, 'uRefl'), refl);
+  gl.uniform1f(U(pr, 'uFog'), FOG);
+  gl.uniform1i(U(pr, 'uNoise'), 0);
+  gl.uniform2f(U(pr, 'uCloudOff'), cloudOff[0], cloudOff[1]);
+}
+function setShadow(pr) {
+  gl.uniform1i(U(pr, 'uShadow'), 1);
+  gl.uniformMatrix4fv(U(pr, 'uLightMat'), false, lightMat);
+  gl.uniform1f(U(pr, 'uShTexel'), 1 / SHADOW);
+}
+function setSailV(pr, s) {
+  gl.uniform3fv(U(pr, 'uC00'), s.c[0]);
+  gl.uniform3fv(U(pr, 'uC10'), s.c[1]);
+  gl.uniform3fv(U(pr, 'uC01'), s.c[2]);
+  gl.uniform3fv(U(pr, 'uC11'), s.c[3]);
+  gl.uniform3fv(U(pr, 'uSailN'), s.n);
+  gl.uniform4f(U(pr, 'uSail'), s.depth, s.phase, s.mode, s.flut);
+}
+function drawShipDepth() {
+  var i;
+  gl.useProgram(progShipD.p);
+  gl.uniformMatrix4fv(U(progShipD, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progShipD, 'uViewProj'), false, lightMat);
+  bindMesh(shipMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, shipMesh.count);
+  gl.useProgram(progSailD.p);
+  gl.uniformMatrix4fv(U(progSailD, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progSailD, 'uViewProj'), false, lightMat);
+  gl.uniform1f(U(progSailD, 'uTimeV'), time);
+  bindMesh(sailMesh);
+  for (i = 0; i < ship.sails.length; i++) {
+    setSailV(progSailD, ship.sails[i]);
+    gl.drawArrays(gl.TRIANGLES, 0, sailMesh.count);
+  }
+}
+function drawShip(vpm, refl) {
+  var i, s;
+  bindTex(1, shadowT.tex);
+  bindTex(0, noiseTex);
+  gl.useProgram(progShip.p);
+  setCommon(progShip, refl); setShadow(progShip);
+  gl.uniformMatrix4fv(U(progShip, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progShip, 'uViewProj'), false, vpm);
+  gl.uniform3fv(U(progShip, 'uLampPos[0]'), lampPos);
+  gl.uniform3fv(U(progShip, 'uLampCol[0]'), lampCol);
+  bindMesh(shipMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, shipMesh.count);
+
+  gl.useProgram(progSail.p);
+  setCommon(progSail, refl); setShadow(progSail);
+  gl.uniformMatrix4fv(U(progSail, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progSail, 'uViewProj'), false, vpm);
+  gl.uniform1f(U(progSail, 'uTimeV'), time);
+  bindMesh(sailMesh);
+  for (i = 0; i < ship.sails.length; i++) {
+    s = ship.sails[i];
+    setSailV(progSail, s);
+    gl.uniform4f(U(progSail, 'uSailCol'), s.col[0], s.col[1], s.col[2], s.emb);
+    gl.uniform3fv(U(progSail, 'uSailEmb'), s.embCol);
+    gl.uniform4f(U(progSail, 'uSailAux'), s.aspect, s.seams, s.embScale, i * 0.731 + 0.2);
+    gl.uniform1f(U(progSail, 'uSailMode'), s.mode);
+    gl.drawArrays(gl.TRIANGLES, 0, sailMesh.count);
+  }
+}
+function drawRopes(vpm, refl, vw, vh) {
+  if (!progRope) { return; }
+  gl.enable(gl.BLEND);
+  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, refl > 0.5 ? gl.ONE : gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false);
+  bindTex(0, noiseTex);
+  gl.useProgram(progRope.p);
+  setCommon(progRope, refl);
+  gl.uniformMatrix4fv(U(progRope, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progRope, 'uViewProj'), false, vpm);
+  gl.uniform2f(U(progRope, 'uViewport'), vw, vh);
+  gl.uniform1f(U(progRope, 'uPxScale'), vh * 0.5 * proj[5]);
+  gl.uniform3f(U(progRope, 'uRopeCol'), 0.17, 0.12, 0.075);
+  bindMesh(ropeMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, ropeMesh.count);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+}
+function drawGlows(vpm, refl) {
+  if (!progGlow) { return; }
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.depthMask(false);
+  gl.useProgram(progGlow.p);
+  gl.uniformMatrix4fv(U(progGlow, 'uModel'), false, model);
+  gl.uniformMatrix4fv(U(progGlow, 'uViewProj'), false, vpm);
+  gl.uniform3fv(U(progGlow, 'uCamRight'), camRight);
+  gl.uniform3fv(U(progGlow, 'uCamUp'), camUp);
+  gl.uniform3fv(U(progGlow, 'uCamPosV'), camPos);
+  gl.uniform1f(U(progGlow, 'uTimeV'), time);
+  gl.uniform1f(U(progGlow, 'uRefl'), refl);
+  bindMesh(glowMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, glowMesh.count);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+}
+function drawSpray() {
+  if (!progSpray) { return; }
+  gl.enable(gl.BLEND);
+  gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false);
+  gl.useProgram(progSpray.p);
+  gl.uniformMatrix4fv(U(progSpray, 'uViewProj'), false, vp);
+  gl.uniform3fv(U(progSpray, 'uCamRight'), camRight);
+  gl.uniform3fv(U(progSpray, 'uCamUp'), camUp);
+  gl.uniform3fv(U(progSpray, 'uBow'), bowPos);
+  gl.uniform1f(U(progSpray, 'uTimeV'), time);
+  gl.uniform1f(U(progSpray, 'uSpray'), spray);
+  gl.uniform3f(U(progSpray, 'uSprayCol'), 0.86, 0.78, 0.76);
+  bindMesh(sprayMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, sprayMesh.count);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+}
+function drawOcean(T) {
+  var t = time;
+  bindTex(3, hullTex);
+  bindTex(2, T.refl.tex);
+  bindTex(1, shadowT.tex);
+  bindTex(0, noiseTex);
+  gl.useProgram(progOcean.p);
+  setCommon(progOcean, 0); setShadow(progOcean);
+  gl.uniformMatrix4fv(U(progOcean, 'uViewProj'), false, vp);
+  gl.uniform4fv(U(progOcean, 'uVWaveA[0]'), waveA.subarray(0, 32));
+  gl.uniform4fv(U(progOcean, 'uVWaveB[0]'), waveB.subarray(0, 32));
+  gl.uniform3f(U(progOcean, 'uShipPlane'), motion.heave.x, model[1], model[9]);
+  gl.uniform4fv(U(progOcean, 'uWaveA[0]'), waveA);
+  gl.uniform4fv(U(progOcean, 'uWaveB[0]'), waveB);
+  gl.uniform1i(U(progOcean, 'uReflTex'), 2);
+  gl.uniform1i(U(progOcean, 'uHullTex'), 3);
+  gl.uniform2f(U(progOcean, 'uInvRes'), 1 / T.scene.w, 1 / T.scene.h);
+  gl.uniform3fv(U(progOcean, 'uCamRight'), camRight);
+  gl.uniform3fv(U(progOcean, 'uCamFwd'), camFwd);
+  var flow = SPEED * t;
+  gl.uniform4f(U(progOcean, 'uRip'), frac((flow + 0.6 * t) * 0.125), frac(0.25 * t * 0.125), frac(0.35 * t * 0.0431), frac(-(flow + 0.4 * t) * 0.0431));
+  gl.uniform4f(U(progOcean, 'uRip2'), frac((flow - 0.9 * t) * 0.317), frac((-0.4 * flow + 0.5 * t) * 0.317), frac(flow / 64) * 64, 0);
+  gl.uniform4f(U(progOcean, 'uRip3'), frac((flow + 0.3 * t) * 0.0141), frac((0.3 * flow - 0.2 * t) * 0.0141), 0, 0);
+  bindMesh(oceanMesh);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oceanIdx);
+  gl.drawElements(gl.TRIANGLES, oceanCount, gl.UNSIGNED_SHORT, 0);
+}
+function drawFar() {
+  bindTex(0, noiseTex);
+  if (progIsle) {
+    gl.useProgram(progIsle.p);
+    setCommon(progIsle, 0);
+    gl.uniformMatrix4fv(U(progIsle, 'uViewProj'), false, vp);
+    gl.uniform1f(U(progIsle, 'uTravel'), frac(SPEED * time / 18000) * 18000);
+    bindMesh(isleMesh);
+    gl.drawArrays(gl.TRIANGLES, 0, isleMesh.count);
+  }
+  if (progGull) {
+    gl.useProgram(progGull.p);
+    setCommon(progGull, 0);
+    gl.uniformMatrix4fv(U(progGull, 'uViewProj'), false, vp);
+    gl.uniform1f(U(progGull, 'uTimeV'), time);
+    bindMesh(gullMesh);
+    gl.drawArrays(gl.TRIANGLES, 0, gullMesh.count);
+  }
+}
+function drawSky() {
+  var th = Math.tan(FOVY / 2);
+  gl.depthFunc(gl.LEQUAL);
+  gl.depthMask(false);
+  bindTex(0, noiseTex);
+  gl.useProgram(progSky.p);
+  setCommon(progSky, 0);
+  gl.uniform3fv(U(progSky, 'uCamRight'), camRight);
+  gl.uniform3fv(U(progSky, 'uCamUp'), camUp);
+  gl.uniform3fv(U(progSky, 'uCamFwd'), camFwd);
+  gl.uniform2f(U(progSky, 'uTanFov'), th * W / H, th);
+  bindMesh(triMesh);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.depthMask(true);
+}
+function post(pr, target, src) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fb : null);
+  gl.viewport(0, 0, target ? target.w : W, target ? target.h : H);
+  gl.useProgram(pr.p);
+  if (src) { bindTex(4, src.tex); gl.uniform1i(U(pr, 'uTex'), 4); }
+}
+function fire() { bindMesh(triMesh); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+function down(dst, src) { post(progDown, dst, src); gl.uniform2f(U(progDown, 'uTexel'), 1 / src.w, 1 / src.h); fire(); }
+function blur(a, b) {
+  post(progBlur, b, a); gl.uniform2f(U(progBlur, 'uDir'), 1 / a.w, 0); fire();
+  post(progBlur, a, b); gl.uniform2f(U(progBlur, 'uDir'), 0, 1 / b.h); fire();
+}
+function draw() {
+  var T = targets, t = time;
+  cloudOff[0] = t * 0.0011; cloudOff[1] = t * 0.0004;
+  gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.colorMask(true, true, true, true);
+
+  /* 1: shadow map */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shadowT.fb);
+  gl.viewport(0, 0, SHADOW, SHADOW);
+  gl.clearColor(1, 1, 1, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  drawShipDepth();
+
+  /* 2: mirrored ship for the water reflection */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, T.refl.fb);
+  gl.viewport(0, 0, T.refl.w, T.refl.h);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  drawShip(vpR, 1);
+  drawRopes(vpR, 1, T.refl.w, T.refl.h);
+  drawGlows(vpR, 1);
+
+  /* 3: main scene */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, T.scene.fb);
+  gl.viewport(0, 0, T.scene.w, T.scene.h);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  drawShip(vp, 0);
+  drawFar();
+  drawOcean(T);
+  drawSky();
+  drawRopes(vp, 0, T.scene.w, T.scene.h);
+  drawSpray();
+  drawGlows(vp, 0);
+
+  /* 4: bloom, light shafts, grade */
+  gl.disable(gl.DEPTH_TEST);
+  gl.depthMask(false);
+  if (!fancy) {
+    post(progCopy, null, T.scene); fire();
+    gl.depthMask(true);
+    return;
+  }
+  post(progBright, T.b2, T.scene); gl.uniform2f(U(progBright, 'uTexel'), 1 / T.scene.w, 1 / T.scene.h); fire();
+  down(T.q0, T.b2);
+  blur(T.q0, T.q1);
+  down(T.e0, T.q0);
+  blur(T.e0, T.e1);
+  down(T.s0, T.e0);
+  blur(T.s0, T.s1);
+
+  var sunP = [camPos[0] + SUN[0] * 1000, camPos[1] + SUN[1] * 1000, camPos[2] + SUN[2] * 1000];
+  var cw = vp[3] * sunP[0] + vp[7] * sunP[1] + vp[11] * sunP[2] + vp[15];
+  var facing = SUN[0] * camFwd[0] + SUN[1] * camFwd[1] + SUN[2] * camFwd[2];
+  var su = 0.5, sv = 0.5, rayAmt = 0;
+  if (cw > 0.001 && facing > 0.05) {
+    su = (vp[0] * sunP[0] + vp[4] * sunP[1] + vp[8] * sunP[2] + vp[12]) / cw * 0.5 + 0.5;
+    sv = (vp[1] * sunP[0] + vp[5] * sunP[1] + vp[9] * sunP[2] + vp[13]) / cw * 0.5 + 0.5;
+    rayAmt = sstep(0.05, 0.55, facing) * 0.20;
+  }
+  post(progRays, T.q1, T.q0);
+  gl.uniform2f(U(progRays, 'uSunUV'), su, sv);
+  gl.uniform1f(U(progRays, 'uAspect'), W / H);
+  fire();
+
+  post(progFinal, null, null);
+  bindTex(3, T.q1.tex); bindTex(5, T.q0.tex); bindTex(6, T.e0.tex); bindTex(7, T.s0.tex); bindTex(4, T.scene.tex);
+  gl.uniform1i(U(progFinal, 'uScene'), 4);
+  gl.uniform1i(U(progFinal, 'uBloomA'), 5);
+  gl.uniform1i(U(progFinal, 'uBloomB'), 6);
+  gl.uniform1i(U(progFinal, 'uBloomC'), 7);
+  gl.uniform1i(U(progFinal, 'uRays'), 3);
+  gl.uniform2f(U(progFinal, 'uTexel'), 1 / T.scene.w, 1 / T.scene.h);
+  gl.uniform3f(U(progFinal, 'uRayCol'), 1.0 * rayAmt, 0.62 * rayAmt, 0.30 * rayAmt);
+  gl.uniform1f(U(progFinal, 'uTime'), frac(t * 0.1) * 10);
+  fire();
+  gl.depthMask(true);
+}
+
+/* ------------------------------------------------------------------ */
+/* main loop                                                           */
+/* ------------------------------------------------------------------ */
+var tStart = -1, tPrev = 0, running = true;
+function frame(ts) {
+  if (!running) { return; }
+  try {
+    var now = (typeof ts === 'number' ? ts : performance.now()) * 0.001;
+    if (tStart < 0) { tStart = now; tPrev = now; }
+    var dt = now - tPrev;
+    tPrev = now;
+    resize();
+    perf.frame++;
+    var probing = !perf.done && perf.frame > 2, c0 = probing ? clock() : 0;
+    update(now - tStart, dt);
+    draw();
+    if (probing) { probe(c0); }
+  } catch (e2) {
+    running = false;
+    failed = true;
+    canvas.style.display = 'none';
+    return;
+  }
+  requestAnimationFrame(frame);
+}
+try {
+  init();
+  resize();
+} catch (e3) {
+  running = false;
+  canvas.style.display = 'none';
+}
+var failed = !running;
+canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); running = false; });
+canvas.addEventListener('webglcontextrestored', function () {
+  if (failed) { return; }
+  try {
+    targets = null; W = 0; H = 0; attrOn = [false, false, false, false];
+    init();
+    resize();
+    running = true;
+    requestAnimationFrame(frame);
+  } catch (e4) {
+    running = false;
+  }
+});
+if (running) { requestAnimationFrame(frame); }
+
+}
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', main); } else { main(); }
+})();
+</script>
+</head>
+<body><canvas id="c"></canvas></body>
+</html>

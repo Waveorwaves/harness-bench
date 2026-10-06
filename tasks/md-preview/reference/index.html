@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markdown preview</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem; display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+    textarea { min-height: 80vh; font: inherit; padding: 0.5rem; }
+    #preview { padding: 0.5rem; border: 1px solid #ccc; overflow: auto; }
+  </style>
+</head>
+<body>
+  <textarea id="source" aria-label="Markdown source"># Hello
+
+Type **Markdown** here.</textarea>
+  <div id="preview"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "fails": [
+    "the page loads and its controls are found",
+    "only the selected panel can be seen",
+    "Right arrow from the last tab wraps to the first",
+    "Left arrow from the first tab wraps to the last",
+    "End selects the last tab",
+    "Left arrow selects and focuses the previous tab",
+    "Tab moves from the tab list to the selected panel, and Shift+Tab comes back",
+    "the inner widget works on its own",
+    "using the outer widget never changes the inner one",
+    "using the inner widget never changes the outer one"
+  ]
+}

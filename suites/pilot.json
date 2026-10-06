@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "suite_id": "research-software-pilot-v0",
+  "comparison": "controlled",
+  "seed": 20261002,
+  "repetitions": 3,
+  "model": "gpt-6.1-sol",
+  "reasoning_effort": "medium",
+  "budget": {
+    "timeout_seconds": 900,
+    "max_retries": 0
+  },
+  "tasks": [
+    {
+      "id": "document-versions",
+      "seed_revision": null,
+      "evaluator_revision": null,
+      "spec": "tasks/document-versions.md"
+    },
+    {
+      "id": "metric-identity",
+      "seed_revision": null,
+      "evaluator_revision": null,
+      "spec": "tasks/metric-identity.md"
+    },
+    {
+      "id": "resumable-ingestion",
+      "seed_revision": null,
+      "evaluator_revision": null,
+      "spec": "tasks/resumable-ingestion.md"
+    }
+  ],
+  "harnesses": [
+    {
+      "id": "codex",
+      "version": null
+    },
+    {
+      "id": "pi",
+      "version": null
+    }
+  ]
+}

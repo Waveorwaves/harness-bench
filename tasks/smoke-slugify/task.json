@@ -1,0 +1,4 @@
+{
+  "evaluator_command": "python3 -B \"$HB_EVAL/check.py\"",
+  "evaluator_timeout_seconds": 60
+}

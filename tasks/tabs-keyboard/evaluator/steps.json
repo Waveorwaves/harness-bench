@@ -1,0 +1,139 @@
+[
+ {
+  "do": "eval",
+  "name": "installed",
+  "script": "window.__snap = () => {\n  const widget = (id) => {\n    const root = document.getElementById(id);\n    const mine = (selector) => [...root.querySelectorAll(selector)].filter((e) => e.closest('.tabs') === root);\n    const tabs = mine('.tab'), panels = mine('.panel'), list = mine('.tab-list')[0];\n    return {\n      listRole: list ? list.getAttribute('role') : null,\n      tabRoles: tabs.map((t) => t.getAttribute('role')),\n      selected: tabs.map((t) => t.getAttribute('aria-selected')),\n      tabindex: tabs.map((t) => t.getAttribute('tabindex')),\n      active: tabs.map((t) => t.classList.contains('active')),\n      controls: tabs.map((t) => t.getAttribute('aria-controls') === t.dataset.panel),\n      panelRoles: panels.map((p) => p.getAttribute('role')),\n      labelledby: panels.map((p) => { const tab = tabs.find((t) => t.dataset.panel === p.id); return Boolean(tab) && p.getAttribute('aria-labelledby') === tab.id; }),\n      panelTabindex: panels.map((p) => p.getAttribute('tabindex')),\n      hidden: panels.map((p) => p.hasAttribute('hidden')),\n      open: panels.map((p) => p.classList.contains('open')),\n      shown: panels.map((p) => p.getClientRects().length > 0),\n    };\n  };\n  return { settings: widget('settings'), period: widget('period'), focus: document.activeElement ? document.activeElement.id : null };\n}, true"
+ },
+ {
+  "do": "eval",
+  "name": "start",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#tab-notifications"
+ },
+ {
+  "do": "eval",
+  "name": "clicked",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowRight"
+ },
+ {
+  "do": "eval",
+  "name": "right",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowRight"
+ },
+ {
+  "do": "eval",
+  "name": "right_again",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowRight"
+ },
+ {
+  "do": "eval",
+  "name": "wrapped",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowLeft"
+ },
+ {
+  "do": "eval",
+  "name": "wrapped_back",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "Home"
+ },
+ {
+  "do": "eval",
+  "name": "home",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "End"
+ },
+ {
+  "do": "eval",
+  "name": "end",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowLeft"
+ },
+ {
+  "do": "eval",
+  "name": "billing",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "Tab"
+ },
+ {
+  "do": "eval",
+  "name": "into_panel",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "Tab",
+  "shift": true
+ },
+ {
+  "do": "eval",
+  "name": "back_to_tab",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#tab-yearly"
+ },
+ {
+  "do": "eval",
+  "name": "inner_clicked",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "ArrowRight"
+ },
+ {
+  "do": "eval",
+  "name": "inner_wrapped",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "press",
+  "key": "End"
+ },
+ {
+  "do": "eval",
+  "name": "inner_end",
+  "script": "window.__snap()"
+ },
+ {
+  "do": "click",
+  "selector": "#tab-profile"
+ },
+ {
+  "do": "eval",
+  "name": "mouse_again",
+  "script": "window.__snap()"
+ }
+]
