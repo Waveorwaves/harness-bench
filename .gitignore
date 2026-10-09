@@ -3,4 +3,8 @@ __pycache__/
 .venv/
 runs/
 .DS_Store
-
+manual/
+# API keys: never commit
+.env
+.env.*
+!.env.example

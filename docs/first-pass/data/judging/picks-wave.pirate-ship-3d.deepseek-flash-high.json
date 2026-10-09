@@ -1,0 +1,92 @@
+{
+  "judge": "Wave",
+  "kind": "person",
+  "task_id": "pirate-ship-3d",
+  "pairs_id": "d96a0cff22fd",
+  "picks": [
+    {
+      "pair": "p001",
+      "winner": "tie"
+    },
+    {
+      "pair": "p002",
+      "winner": "right"
+    },
+    {
+      "pair": "p003",
+      "winner": "right"
+    },
+    {
+      "pair": "p004",
+      "winner": "left"
+    },
+    {
+      "pair": "p005",
+      "winner": "right"
+    },
+    {
+      "pair": "p006",
+      "winner": "right"
+    },
+    {
+      "pair": "p007",
+      "winner": "right"
+    },
+    {
+      "pair": "p008",
+      "winner": "tie"
+    },
+    {
+      "pair": "p009",
+      "winner": "left"
+    },
+    {
+      "pair": "p010",
+      "winner": "tie"
+    },
+    {
+      "pair": "p011",
+      "winner": "left"
+    },
+    {
+      "pair": "p012",
+      "winner": "tie"
+    },
+    {
+      "pair": "p013",
+      "winner": "right"
+    },
+    {
+      "pair": "p014",
+      "winner": "tie"
+    },
+    {
+      "pair": "p015",
+      "winner": "right"
+    },
+    {
+      "pair": "p016",
+      "winner": "right"
+    },
+    {
+      "pair": "p017",
+      "winner": "left"
+    },
+    {
+      "pair": "p018",
+      "winner": "left"
+    },
+    {
+      "pair": "p019",
+      "winner": "right"
+    },
+    {
+      "pair": "p020",
+      "winner": "tie"
+    },
+    {
+      "pair": "p021",
+      "winner": "left"
+    }
+  ]
+}

@@ -112,6 +112,7 @@ A task is only usable if all of these hold:
 - **Software rendering.** Visual tasks are screenshotted without a GPU. Frame rate there is indicative only and is not a pass condition.
 - **Cost estimates.** List-price cost assumes the price table is right and that token counts are complete. Cache-write pricing is missing for some providers and is then left out of the estimate rather than guessed.
 - **Logins.** A harness's login file is copied into the container, where the agent can read it. A refresh made there is discarded unless write-back is turned on, and write-back cannot tell a genuine refresh from content the agent wrote. A login kept only for the benchmark limits both risks.
+- **Runs by hand.** Desktop apps with no command line are run by a person and recorded with `manual-finish`. They are not sandboxed, their model is whatever was selected in the app, their time can include the person's handling, and their tokens and cost are typed in. They are labelled (manual) and should be read as a side comparison, not as part of the controlled matrix.
 - **Container runtimes.** Written for Docker Desktop on macOS and ordinary Docker on Linux. Rootless Docker, Podman and SELinux hosts need mount options this does not set.
 - **Evaluator trust.** Candidate code runs inside the evaluator's process or page. A candidate that set out to cheat the checks could; nothing here defends against a deliberately adversarial agent.
 - **Judging.** Picks reflect the judges' taste. Report who judged, how many pairs, and the agreement between judges.

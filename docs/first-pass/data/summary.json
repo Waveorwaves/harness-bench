@@ -1,0 +1,1221 @@
+{
+  "plan_id": "7d7e5a45591c4afd3233e20093330f1c830c917bd05d6c307a0b606962d0a46b",
+  "rows": {
+    "gpt-6-1-sol": [
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "codex-app",
+        "name": "Codex app",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1145.5,
+        "median_seconds": 89.0,
+        "ship_seconds": 404.4,
+        "ship_status": "passed",
+        "rest_seconds": 741.1,
+        "list_usd": 1.294242,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.14380466666666666,
+        "tokens": {
+          "input": 248315,
+          "cached": 2851200,
+          "written": 0,
+          "output": 51249,
+          "turns": 0,
+          "tools": 72
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 0,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "pi",
+        "name": "Pi",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1373.037,
+        "median_seconds": 82.816,
+        "ship_seconds": 646.28,
+        "ship_status": "passed",
+        "rest_seconds": 726.7570000000001,
+        "list_usd": 0.748157,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.08312855555555555,
+        "tokens": {
+          "input": 149686,
+          "cached": 451456,
+          "written": 0,
+          "output": 40364,
+          "turns": 86,
+          "tools": 118
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "deepseek-harness",
+        "name": "DeepSeek Harness",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1550.4,
+        "median_seconds": 114.9,
+        "ship_seconds": 676.9,
+        "ship_status": "passed",
+        "rest_seconds": 873.5000000000001,
+        "list_usd": 1.127083,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.12523144444444445,
+        "tokens": {
+          "input": 204831,
+          "cached": 2170496,
+          "written": 0,
+          "output": 50037,
+          "turns": 170,
+          "tools": 202
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "devin",
+        "name": "Devin",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1559.578,
+        "median_seconds": 123.058,
+        "ship_seconds": 621.356,
+        "ship_status": "passed",
+        "rest_seconds": 938.222,
+        "list_usd": 1.5685769999999999,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.17428633333333332,
+        "tokens": {
+          "input": 263691,
+          "cached": 3818737,
+          "written": 0,
+          "output": 65932,
+          "turns": 171,
+          "tools": 274
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "codex",
+        "name": "Codex CLI",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1640.6970000000001,
+        "median_seconds": 97.245,
+        "ship_seconds": 830.019,
+        "ship_status": "passed",
+        "rest_seconds": 810.6780000000001,
+        "list_usd": 1.105146,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.122794,
+        "tokens": {
+          "input": 180710,
+          "cached": 1851264,
+          "written": 0,
+          "output": 55860,
+          "turns": 0,
+          "tools": 75
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 0,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "capy",
+        "name": "Capy",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1646.0,
+        "median_seconds": 152.0,
+        "ship_seconds": 547.0,
+        "ship_status": "passed",
+        "rest_seconds": 1099.0,
+        "list_usd": 0,
+        "list_known": 0,
+        "own_usd": 1.83,
+        "own_known": 9,
+        "own_floor": true,
+        "per_pass": null,
+        "tokens": {
+          "input": 0,
+          "cached": 0,
+          "written": 0,
+          "output": 0,
+          "turns": 0,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 0,
+          "cached": 0,
+          "written": 0,
+          "output": 0,
+          "turns": 0,
+          "tools": 0
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "opencode",
+        "name": "OpenCode",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1764.933,
+        "median_seconds": 113.735,
+        "ship_seconds": 751.546,
+        "ship_status": "passed",
+        "rest_seconds": 1013.387,
+        "list_usd": 1.057002,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.11744466666666667,
+        "tokens": {
+          "input": 204062,
+          "cached": 1339776,
+          "written": 0,
+          "output": 51490,
+          "turns": 127,
+          "tools": 169
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "droid",
+        "name": "Droid",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1789.0739999999998,
+        "median_seconds": 78.469,
+        "ship_seconds": 1126.984,
+        "ship_status": "passed",
+        "rest_seconds": 662.0899999999999,
+        "list_usd": 1.327486,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.14749844444444443,
+        "tokens": {
+          "input": 236196,
+          "cached": 2059457,
+          "written": 0,
+          "output": 64915,
+          "turns": 99,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 0
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "hermes",
+        "name": "Hermes Agent",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 1977.499,
+        "median_seconds": 168.022,
+        "ship_seconds": 721.252,
+        "ship_status": "passed",
+        "rest_seconds": 1256.247,
+        "list_usd": 1.412575,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.15695277777777777,
+        "tokens": {
+          "input": 323427,
+          "cached": 2575104,
+          "written": 0,
+          "output": 50821,
+          "turns": 108,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 0
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "gpt-6-1-sol",
+        "harness": "omp",
+        "name": "oh-my-pi",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 2387.909,
+        "median_seconds": 238.757,
+        "ship_seconds": 707.744,
+        "ship_status": "passed",
+        "rest_seconds": 1680.165,
+        "list_usd": 1.404657,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.15607300000000002,
+        "tokens": {
+          "input": 303627,
+          "cached": 2563328,
+          "written": 0,
+          "output": 54107,
+          "turns": 179,
+          "tools": 240
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      }
+    ],
+    "deepseek-flash-high": [
+      {
+        "model": "deepseek-flash-high",
+        "harness": "pi",
+        "name": "Pi",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 2042.855,
+        "median_seconds": 51.457,
+        "ship_seconds": 1645.817,
+        "ship_status": "passed",
+        "rest_seconds": 397.038,
+        "list_usd": 0.358975,
+        "list_known": 9,
+        "own_usd": 0.358976292,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.03988611111111111,
+        "tokens": {
+          "input": 74935,
+          "cached": 12399232,
+          "written": 0,
+          "output": 218417,
+          "turns": 203,
+          "tools": 255
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "hermes",
+        "name": "Hermes Agent",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 2166.346,
+        "median_seconds": 78.448,
+        "ship_seconds": 1545.575,
+        "ship_status": "passed",
+        "rest_seconds": 620.771,
+        "list_usd": 0.607035,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.06744833333333333,
+        "tokens": {
+          "input": 253214,
+          "cached": 24514304,
+          "written": 0,
+          "output": 319987,
+          "turns": 194,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 0
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "omp",
+        "name": "oh-my-pi",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 3940.4500000000003,
+        "median_seconds": 63.99,
+        "ship_seconds": 3053.396,
+        "ship_status": "passed",
+        "rest_seconds": 887.0540000000001,
+        "list_usd": 0.812043,
+        "list_known": 9,
+        "own_usd": 0.72540378,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.090227,
+        "tokens": {
+          "input": 633134,
+          "cached": 27746432,
+          "written": 0,
+          "output": 379687,
+          "turns": 251,
+          "tools": 286
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "codex",
+        "name": "Codex CLI",
+        "runs": 9,
+        "passed": 9,
+        "failed": 0,
+        "stopped": 0,
+        "seconds": 3958.395,
+        "median_seconds": 76.084,
+        "ship_seconds": 3316.049,
+        "ship_status": "passed",
+        "rest_seconds": 642.346,
+        "list_usd": 0.814562,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.09050688888888889,
+        "tokens": {
+          "input": 326066,
+          "cached": 48117120,
+          "written": 0,
+          "output": 356701,
+          "turns": 0,
+          "tools": 256
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 0,
+          "tools": 9
+        },
+        "interval": [
+          0.7008472464490406,
+          1.0
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "opencode",
+        "name": "OpenCode",
+        "runs": 9,
+        "passed": 8,
+        "failed": 1,
+        "stopped": 0,
+        "seconds": 1276.375,
+        "median_seconds": 39.693,
+        "ship_seconds": 928.179,
+        "ship_status": "passed",
+        "rest_seconds": 348.196,
+        "list_usd": 0.153729,
+        "list_known": 9,
+        "own_usd": 0.13290654,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.019216125,
+        "tokens": {
+          "input": 70738,
+          "cached": 7716480,
+          "written": 0,
+          "output": 71839,
+          "turns": 162,
+          "tools": 230
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "droid",
+        "name": "Droid",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 4077.683,
+        "median_seconds": 57.546,
+        "ship_seconds": 3600.419,
+        "ship_status": "timed_out",
+        "rest_seconds": 477.2640000000001,
+        "list_usd": 0.127805,
+        "list_known": 8,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": null,
+        "tokens": {
+          "input": 47951,
+          "cached": 1863040,
+          "written": 0,
+          "output": 85201,
+          "turns": 100,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 8,
+          "cached": 8,
+          "written": 8,
+          "output": 8,
+          "turns": 8,
+          "tools": 0
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash-high",
+        "harness": "deepseek-harness",
+        "name": "DeepSeek Harness",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 4180.737,
+        "median_seconds": 82.359,
+        "ship_seconds": 3600.375,
+        "ship_status": "timed_out",
+        "rest_seconds": 580.3620000000001,
+        "list_usd": 0.635802,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.07947525,
+        "tokens": {
+          "input": 120926,
+          "cached": 30314752,
+          "written": 0,
+          "output": 348030,
+          "turns": 257,
+          "tools": 327
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      }
+    ],
+    "deepseek-v4-1-flash-plan": [
+      {
+        "model": "deepseek-v4-1-flash-plan",
+        "harness": "devin",
+        "name": "Devin",
+        "runs": 9,
+        "passed": 8,
+        "failed": 1,
+        "stopped": 0,
+        "seconds": 3686.6490000000003,
+        "median_seconds": 39.214,
+        "ship_seconds": 3357.222,
+        "ship_status": "passed",
+        "rest_seconds": 329.42700000000013,
+        "list_usd": 1.836034,
+        "list_known": 9,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": 0.22950425,
+        "tokens": {
+          "input": 3579580,
+          "cached": 48961308,
+          "written": 0,
+          "output": 390328,
+          "turns": 326,
+          "tools": 369
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-v4-1-flash-plan",
+        "harness": "droid",
+        "name": "Droid",
+        "runs": 9,
+        "passed": 7,
+        "failed": 1,
+        "stopped": 1,
+        "seconds": 4188.978,
+        "median_seconds": 76.745,
+        "ship_seconds": 3600.507,
+        "ship_status": "timed_out",
+        "rest_seconds": 588.471,
+        "list_usd": 0.26737,
+        "list_known": 8,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": null,
+        "tokens": {
+          "input": 381259,
+          "cached": 2434493,
+          "written": 0,
+          "output": 115321,
+          "turns": 123,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 8,
+          "cached": 8,
+          "written": 8,
+          "output": 8,
+          "turns": 8,
+          "tools": 0
+        },
+        "interval": [
+          0.4525833436728054,
+          0.9367762376877727
+        ]
+      }
+    ],
+    "deepseek-flash": [
+      {
+        "model": "deepseek-flash",
+        "harness": "opencode",
+        "name": "OpenCode",
+        "runs": 9,
+        "passed": 8,
+        "failed": 1,
+        "stopped": 0,
+        "seconds": 1041.849,
+        "median_seconds": 52.098,
+        "ship_seconds": 674.834,
+        "ship_status": "passed",
+        "rest_seconds": 367.015,
+        "list_usd": 0.143311,
+        "list_known": 9,
+        "own_usd": 0.126904284,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.017913875,
+        "tokens": {
+          "input": 69970,
+          "cached": 7200128,
+          "written": 0,
+          "output": 65933,
+          "turns": 162,
+          "tools": 196
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash",
+        "harness": "pi",
+        "name": "Pi",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 1302.047,
+        "median_seconds": 52.061,
+        "ship_seconds": 900.523,
+        "ship_status": "timed_out",
+        "rest_seconds": 401.524,
+        "list_usd": 0.289439,
+        "list_known": 9,
+        "own_usd": 0.289439112,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.036179875,
+        "tokens": {
+          "input": 69530,
+          "cached": 6500352,
+          "written": 0,
+          "output": 191315,
+          "turns": 148,
+          "tools": 197
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash",
+        "harness": "omp",
+        "name": "oh-my-pi",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 1564.775,
+        "median_seconds": 45.704,
+        "ship_seconds": 900.48,
+        "ship_status": "timed_out",
+        "rest_seconds": 664.2950000000001,
+        "list_usd": 0.341367,
+        "list_known": 9,
+        "own_usd": 0.170683602,
+        "own_known": 9,
+        "own_floor": false,
+        "per_pass": 0.042670875,
+        "tokens": {
+          "input": 114367,
+          "cached": 6307584,
+          "written": 0,
+          "output": 224343,
+          "turns": 143,
+          "tools": 196
+        },
+        "tokens_known": {
+          "input": 9,
+          "cached": 9,
+          "written": 9,
+          "output": 9,
+          "turns": 9,
+          "tools": 9
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash",
+        "harness": "hermes",
+        "name": "Hermes Agent",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 1879.445,
+        "median_seconds": 94.928,
+        "ship_seconds": 900.776,
+        "ship_status": "timed_out",
+        "rest_seconds": 978.669,
+        "list_usd": 0.239046,
+        "list_known": 8,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": null,
+        "tokens": {
+          "input": 157446,
+          "cached": 3394176,
+          "written": 0,
+          "output": 142873,
+          "turns": 113,
+          "tools": 0
+        },
+        "tokens_known": {
+          "input": 8,
+          "cached": 8,
+          "written": 8,
+          "output": 8,
+          "turns": 8,
+          "tools": 0
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      },
+      {
+        "model": "deepseek-flash",
+        "harness": "codex",
+        "name": "Codex CLI",
+        "runs": 9,
+        "passed": 8,
+        "failed": 0,
+        "stopped": 1,
+        "seconds": 1882.51,
+        "median_seconds": 66.768,
+        "ship_seconds": 900.313,
+        "ship_status": "timed_out",
+        "rest_seconds": 982.197,
+        "list_usd": 0.31887,
+        "list_known": 8,
+        "own_usd": 0,
+        "own_known": 0,
+        "own_floor": false,
+        "per_pass": null,
+        "tokens": {
+          "input": 159134,
+          "cached": 13595136,
+          "written": 0,
+          "output": 157965,
+          "turns": 0,
+          "tools": 117
+        },
+        "tokens_known": {
+          "input": 8,
+          "cached": 8,
+          "written": 8,
+          "output": 8,
+          "turns": 0,
+          "tools": 8
+        },
+        "interval": [
+          0.5649937852319398,
+          0.9801096286728695
+        ]
+      }
+    ]
+  },
+  "ships": {
+    "gpt-6-1-sol": {
+      "pairs": 45,
+      "ties": 18,
+      "tally": {
+        "codex-app": [
+          5,
+          4,
+          0
+        ],
+        "devin": [
+          5,
+          4,
+          0
+        ],
+        "droid": [
+          4,
+          5,
+          0
+        ],
+        "omp": [
+          4,
+          5,
+          0
+        ],
+        "pi": [
+          3,
+          6,
+          0
+        ],
+        "deepseek-harness": [
+          2,
+          5,
+          2
+        ],
+        "codex": [
+          2,
+          3,
+          4
+        ],
+        "opencode": [
+          2,
+          2,
+          5
+        ],
+        "capy": [
+          0,
+          1,
+          8
+        ],
+        "hermes": [
+          0,
+          1,
+          8
+        ]
+      },
+      "rating": {
+        "codex-app": [
+          1741.7995299879647,
+          1658.1880326548915,
+          1831.8343562372936
+        ],
+        "devin": [
+          1741.7995299879647,
+          1662.535474414547,
+          1845.0443786791498
+        ],
+        "droid": [
+          1695.5106822621483,
+          1607.1205112186776,
+          1771.3244820324721
+        ],
+        "omp": [
+          1695.5106822621483,
+          1618.8369873945835,
+          1766.5811390157528
+        ],
+        "pi": [
+          1651.5355404896604,
+          1558.4689813753253,
+          1732.7218569351407
+        ],
+        "deepseek-harness": [
+          1523.904961201158,
+          1410.1995850283095,
+          1629.2086630236388
+        ],
+        "codex": [
+          1435.0421878597951,
+          1314.3401277764403,
+          1541.7118592603101
+        ],
+        "opencode": [
+          1387.2217032402011,
+          1262.1654534483987,
+          1483.654134565356
+        ],
+        "capy": [
+          1063.8375913544799,
+          981.3249344286452,
+          1200.2657171502387
+        ],
+        "hermes": [
+          1063.8375913544799,
+          979.844758923595,
+          1198.762115845339
+        ]
+      }
+    },
+    "deepseek-flash-high": {
+      "pairs": 21,
+      "ties": 6,
+      "tally": {
+        "deepseek-harness": [
+          4,
+          2,
+          0
+        ],
+        "codex": [
+          3,
+          2,
+          1
+        ],
+        "droid": [
+          3,
+          2,
+          1
+        ],
+        "pi": [
+          2,
+          3,
+          1
+        ],
+        "omp": [
+          2,
+          3,
+          1
+        ],
+        "opencode": [
+          1,
+          0,
+          5
+        ],
+        "hermes": [
+          0,
+          0,
+          6
+        ]
+      },
+      "rating": {
+        "deepseek-harness": [
+          1753.7430514114133,
+          1572.0208274260817,
+          1979.6423670251893
+        ],
+        "codex": [
+          1633.063858524968,
+          1479.8054142572473,
+          1792.7157646491423
+        ],
+        "droid": [
+          1633.063858524968,
+          1468.5945886252039,
+          1799.6550755996575
+        ],
+        "pi": [
+          1577.5760587588954,
+          1422.7478475540663,
+          1710.1060250539533
+        ],
+        "omp": [
+          1577.5760587588954,
+          1420.2085389510726,
+          1706.2744039833774
+        ],
+        "opencode": [
+          1262.4593585163316,
+          1088.7200644370514,
+          1423.4675478832078
+        ],
+        "hermes": [
+          1062.517755504528,
+          955.2123002068508,
+          1290.5147917890122
+        ]
+      }
+    },
+    "deepseek-v4-1-flash-plan": {
+      "pairs": 1,
+      "ties": 0,
+      "tally": {
+        "droid": [
+          1,
+          0,
+          0
+        ],
+        "devin": [
+          0,
+          0,
+          1
+        ]
+      },
+      "rating": {
+        "droid": [
+          1631.3840891122143,
+          1631.3840891122143,
+          1631.3840891122143
+        ],
+        "devin": [
+          1368.6159108877857,
+          1368.6159108877857,
+          1368.6159108877857
+        ]
+      }
+    }
+  },
+  "allowance": [
+    {
+      "plan": "ChatGPT/Codex subscription",
+      "runs": "Codex app, nine tasks",
+      "used": "13 points of the 5-hour limit",
+      "how_read": "read after each task"
+    },
+    {
+      "plan": "ChatGPT/Codex subscription",
+      "runs": "Capy, nine tasks",
+      "used": "20 points of the 5-hour limit; 3 of the weekly limit",
+      "how_read": "read after each task; one more point went on an attempt that stalled and was run again"
+    },
+    {
+      "plan": "ChatGPT/Codex subscription",
+      "runs": "DeepSeek Harness, nine tasks",
+      "used": "12 points of the 5-hour limit; 2 of the weekly limit",
+      "how_read": "0% before, 12% after, in a fresh window"
+    },
+    {
+      "plan": "Devin plan",
+      "runs": "Devin, nine gpt-6.1-sol tasks and one attempt cut off at 15 minutes",
+      "used": "about 11 points of the daily limit; 5 of the weekly limit",
+      "how_read": "first reading came four minutes after the first run started"
+    },
+    {
+      "plan": "Factory plan",
+      "runs": "Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek tasks",
+      "used": "about 3 points of the weekly limit",
+      "how_read": "one reading, after all of them"
+    }
+  ]
+}

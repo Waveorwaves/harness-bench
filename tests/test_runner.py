@@ -101,6 +101,29 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((usage["input_tokens"], usage["cached_input_tokens"], usage["output_tokens"],
                           usage["tool_calls"], usage["reported_cost_usd"]), (40, 60, 9, 1, None))
 
+    def test_codex_real_output_shape(self):
+        # Event types and the usage object as printed by a real run (codex-cli 0.160.1); content left out.
+        lines = [{"type": "thread.started"}, {"type": "turn.started"},
+                 *[{"type": "item.completed", "item": {"type": kind}} for kind in
+                   ("agent_message", "command_execution", "command_execution", "command_execution", "command_execution", "file_change", "agent_message")],
+                 {"type": "turn.completed", "usage": {"input_tokens": 74084, "cached_input_tokens": 65152,
+                                                      "cache_write_input_tokens": 0, "output_tokens": 1057, "reasoning_output_tokens": 146}}]
+        usage = self.parse("codex", "\n".join(map(json.dumps, lines)))
+        self.assertEqual((usage["input_tokens"], usage["cached_input_tokens"], usage["cache_write_tokens"], usage["output_tokens"],
+                          usage["tool_calls"], usage["turns"], usage["error"]), (8932, 65152, 0, 1057, 5, None, None))
+        failed = self.parse("codex", json.dumps({"type": "turn.failed", "error": {"message": "401 Unauthorized\nmore"}}))
+        self.assertEqual(failed["error"], "401 Unauthorized")
+
+    def test_pi_reports_a_login_failure_it_exited_cleanly_from(self):
+        # As printed by a real run whose Codex login had expired (Pi 1.0.4): one assistant message, an error, no tokens.
+        message = {"role": "assistant", "content": [], "stopReason": "error",
+                   "errorMessage": "OAuth refresh failed for openai-codex: OpenAI Codex token refresh failed (401): {\n  \"error\": {",
+                   "usage": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "cost": {"total": 0}}}
+        usage = self.parse("pi", "\n".join(map(json.dumps, [{"type": "message_end", "message": {"role": "user"}},
+                                                             {"type": "message_end", "message": message}])))
+        self.assertEqual((usage["output_tokens"], usage["error"]),
+                         (0, "OAuth refresh failed for openai-codex: OpenAI Codex token refresh failed (401): {"))
+
     def test_pi_sums_assistant_messages(self):
         message = {"role": "assistant", "content": [{"type": "toolCall"}, {"type": "text"}],
                    "usage": {"input": 3, "output": 2, "cacheRead": 10, "cacheWrite": 1, "cost": {"total": 0.01}}}
@@ -118,6 +141,93 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((usage["input_tokens"], usage["output_tokens"], usage["cached_input_tokens"],
                           usage["turns"], usage["reported_cost_usd"]), (5, 6, 7, 2, None))
 
+    def test_a_provider_refusal_is_reported_by_opencode_and_hermes(self):
+        # Trimmed from real runs refused by a subscription's usage limit (2026-10-07).
+        refused = {"type": "error", "timestamp": 1791352030186, "sessionID": "ses_x",
+                   "error": {"name": "APIError", "data": {"message": "The usage limit has been reached", "statusCode": 429}}}
+        usage = self.parse("opencode", json.dumps(refused))
+        self.assertEqual((usage["error"], usage["output_tokens"]), ("APIError: The usage limit has been reached", None))
+        said = "ChatGPT or Codex Subscription rate-limited every one of 3 attempts\n\nProvider said: HTTP 429\n"
+        usage = self.parse("hermes", said, {"hermes-usage.json": {"input_tokens": None, "output_tokens": None, "api_calls": 1,
+                                                                  "completed": False, "failed": True}})
+        self.assertEqual((usage["error"], usage["output_tokens"]),
+                         ("ChatGPT or Codex Subscription rate-limited every one of 3 attempts", None))
+        worked = self.parse("hermes", "done", {"hermes-usage.json": {"input_tokens": 5, "output_tokens": 6, "failed": False}})
+        self.assertIsNone(worked["error"])
+
+    def test_droid_reads_its_result_object(self):
+        # The result object of a real run (droid 0.235.0, 2026-10-08), with the reply text shortened.
+        result = {"type": "result", "subtype": "success", "is_error": False, "duration_ms": 25500, "num_turns": 4,
+                  "result": "Rewrote slugify.", "session_id": "a1038628",
+                  "usage": {"input_tokens": 27728, "output_tokens": 2111, "cache_read_input_tokens": 10752,
+                            "cache_creation_input_tokens": 0, "factory_credits": 4373, "ttft_ms": 1496.5}}
+        usage = self.parse("droid", json.dumps(result))
+        self.assertEqual((usage["input_tokens"], usage["cached_input_tokens"], usage["cache_write_tokens"], usage["output_tokens"],
+                          usage["turns"], usage["tool_calls"], usage["error"]), (27728, 10752, 0, 2111, 4, None, None))
+        refused = self.parse("droid", json.dumps({"type": "result", "subtype": "error", "is_error": True, "result": "Insufficient credits\nmore"}))
+        self.assertEqual((refused["error"], refused["output_tokens"]), ("Insufficient credits", None))
+        launch = adapters.Launch("do it", "custom:deepseek-flash-0", "high", "single", (), {"telemetry": "/t", "mock": "/m"})
+        self.assertNotIn("-r", adapters.get("droid").command(launch))   # a custom model takes its effort from the settings file
+        self.assertIn("-r", adapters.get("droid").command(adapters.Launch("do it", "gpt-6.1-sol", "medium", "single", (), {"telemetry": "/t", "mock": "/m"})))
+
+    def test_dsh_writes_its_model_settings_and_sums_step_usage(self):
+        launch = adapters.Launch("--do it", "openai-codex/gpt-6.1-sol", "medium", "single", ("--patch", "/extra.yml"), {"telemetry": "/t", "mock": "/m"})
+        command = adapters.get("dsh").command(launch)
+        with tempfile.TemporaryDirectory() as folder:
+            # Run the wrapper for real, with `echo` standing in for dsh, to see the file it writes and what it would launch.
+            path = str(Path(folder) / "dsh-model.yml")
+            staged = [path if part == "/t/dsh-model.yml" else "echo" if part == "dsh" else part for part in command]
+            printed = subprocess.run(staged, capture_output=True, text=True, check=True).stdout.strip()
+            written = json.loads(Path(path).read_text())
+        self.assertEqual(written, [{"id": "agent-default-model", "name": "@deepseek-ai/dsh-agent-default-model",
+                                    "config": {"provider": "openai-codex", "model": "gpt-6.1-sol", "reasoningEffort": "medium"}}])
+        self.assertEqual(printed, f"--profile headless --patch {path} --patch /extra.yml --json -- --do it")
+        self.assertEqual(adapters.get("dsh").env, {"DSH_PERMISSION_MODE": "danger-full-access"})
+
+        def step(**usage):
+            return json.dumps({"type": "status", "phase": "step_end", "turn": 1, "step": 1, **({"usage": usage} if usage else {})})
+        call = json.dumps({"type": "tool_call", "callId": "c1", "tool": "bash", "input": {}})
+        # Two steps as a real run on gpt-6.1-sol gave them (2026-10-08): input apart from the cache, zero cache figures left out.
+        # The totals leave no room for cache writes, so those are known to be zero and not merely unreported.
+        first = step(inputTokens=4216, outputTokens=50, totalTokens=4266)
+        apart = step(inputTokens=198, outputTokens=57, totalTokens=4351, cacheReadTokens=4096)
+        usage = self.parse("dsh", "\n".join(['{"type":"session","sessionId":"s"}', call, first, call, apart, '{"type":"final","text":"done"}']))
+        self.assertEqual((usage["input_tokens"], usage["cached_input_tokens"], usage["cache_write_tokens"], usage["output_tokens"],
+                          usage["turns"], usage["tool_calls"], usage["error"]), (4414, 4096, 0, 107, 2, 2, None))
+        # A total that holds more than input, output and cache reads: the rest was written to the cache.
+        wrote = self.parse("dsh", step(inputTokens=100, outputTokens=20, cacheReadTokens=900, totalTokens=1320))
+        self.assertEqual((wrote["input_tokens"], wrote["cached_input_tokens"], wrote["cache_write_tokens"]), (100, 900, 300))
+        # Input that has the cached part inside it: taken out, and cache writes stay unknown.
+        inside = self.parse("dsh", step(inputTokens=1000, outputTokens=30, cacheReadTokens=900, totalTokens=1030))
+        self.assertEqual((inside["input_tokens"], inside["cached_input_tokens"], inside["cache_write_tokens"]), (100, 900, None))
+        # A retried step reports no usage: the total is then unknown, not a partial sum.
+        partial = self.parse("dsh", "\n".join([apart, step()]))
+        self.assertEqual((partial["input_tokens"], partial["output_tokens"], partial["turns"]), (None, None, 2))
+        # The end of a real run whose last model call failed after the work was done (2026-10-08).
+        ended = self.parse("dsh", "\n".join([first, json.dumps({"type": "status", "phase": "turn_end", "turn": 1, "reason": {
+            "kind": "error", "error": {"message": "WebSocket closed 1000", "code": "PI_AI_ERROR"}}}), '{"type":"final","text":"done"}']))
+        self.assertEqual((ended["error"], ended["output_tokens"]), ("WebSocket closed 1000", 50))
+        refused = self.parse("dsh", '{"type":"error","message":"MISSING_CREDENTIAL: no key\\nmore"}')
+        self.assertEqual((refused["error"], refused["input_tokens"]), ("MISSING_CREDENTIAL: no key", None))
+
+    def test_devin_reads_its_exported_session(self):
+        # Trimmed from the export of a real run (devin 3000.11.3, 2026-10-07): the same fields, fewer steps.
+        export = {"schema_version": "ATIF-v1.7", "agent": {"name": "devin", "model_name": "GPT-6.1 Sol Medium Thinking"},
+                  "steps": [{"step_id": 1, "source": "system", "message": "..."},
+                            {"step_id": 2, "source": "user", "message": "..."},
+                            {"step_id": 3, "source": "agent", "tool_calls": [{}, {}, {}, {}],
+                             "metrics": {"prompt_tokens": 9480, "completion_tokens": 310, "cached_tokens": 0,
+                                         "extra": {"cache_creation_input_tokens": 9470}}},
+                            {"step_id": 4, "source": "agent", "tool_calls": [{}],
+                             "metrics": {"prompt_tokens": 15001, "completion_tokens": 92, "cached_tokens": 14804,
+                                         "extra": {"cache_creation_input_tokens": 194}}},
+                            {"step_id": 5, "source": "agent", "tool_calls": []}],
+                  "final_metrics": {"total_prompt_tokens": 24481, "total_completion_tokens": 402, "total_cached_tokens": 14804}}
+        usage = self.parse("devin", "plain text reply", {"devin-export.json": export})
+        self.assertEqual((usage["input_tokens"], usage["cached_input_tokens"], usage["cache_write_tokens"], usage["output_tokens"],
+                          usage["turns"], usage["tool_calls"], usage["reported_cost_usd"]), (9677, 14804, 0, 402, 2, 5, None))
+        self.assertEqual(set(self.parse("devin", "no export was written").values()), {None})
+
     def test_unrecognised_output_is_missing_not_zero(self):
         for adapter in adapters.ADAPTERS:
             usage = self.parse(adapter, "something went wrong\n{not json}\n")
@@ -126,6 +236,10 @@ class ParserTests(unittest.TestCase):
     def test_every_adapter_builds_a_command(self):
         launch = adapters.Launch("do it", "m", "high", "single", ("--extra",), {"telemetry": "/t", "mock": "/m"})
         for adapter in adapters.ADAPTERS.values():
+            if adapter.id == "manual":
+                with self.assertRaisesRegex(RuntimeError, "by hand"):
+                    adapter.command(launch)
+                continue
             argv = adapter.command(launch)
             self.assertTrue(all(isinstance(part, str) for part in argv), adapter.id)
             self.assertIn("--extra", argv, adapter.id)
@@ -282,6 +396,30 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([r["run_id"] for r in everything[:2]], [r["run_id"] for r in first])
         _, again = self.run_plan(retry_blocked=True)
         self.assertEqual(len(again), 5)
+
+    def test_one_repetition_at_a_time_adds_to_the_same_results(self):
+        self.suite["repetitions"] = 2
+        plan, first = self.run_plan(repetition=1)
+        self.assertEqual(len(first), len(plan["runs"]) // 2)
+        self.assertEqual({r["repetition"] for r in plan["runs"] if r["run_id"] in {x["run_id"] for x in first}}, {1})
+        _, everything = self.run_plan()
+        self.assertEqual(len(everything), len(plan["runs"]))
+        self.assertEqual([r["run_id"] for r in everything[:len(first)]], [r["run_id"] for r in first])
+
+    def test_several_harnesses_can_be_named(self):
+        plan = make_plan(runner.pin(self.suite, self.root, self.box))
+        ids = sorted({run["harness_id"] for run in plan["runs"]})
+        _, some = self.run_plan(harness=",".join(ids[:2]))
+        self.assertEqual(len(some), sum(run["harness_id"] in ids[:2] for run in plan["runs"]))
+        with self.assertRaisesRegex(ValueError, "no such harness"):
+            self.run_plan(harness="not-a-harness")
+
+    def test_one_model_at_a_time(self):
+        plan, none = self.run_plan(model="no-such-model")
+        self.assertEqual(none, [])
+        wanted = plan["runs"][0].get("model_id")
+        _, some = self.run_plan(model=wanted)
+        self.assertEqual(len(some), sum(run.get("model_id") == wanted for run in plan["runs"]))
 
     def test_changed_task_blocks_instead_of_running(self):
         plan = make_plan(runner.pin(self.suite, self.root, self.box))
@@ -520,6 +658,17 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual((records[0]["status"], records[0]["input_tokens"]), ("passed", None))
         self.assertIn("AttributeError", records[0]["usage_error"])
 
+    def test_a_harness_that_says_it_never_reached_the_model_is_blocked_not_failed(self):
+        from harness_bench import adapters
+        self.only(args=["noop"])
+        original = adapters.ADAPTERS["mock"]
+        adapters.ADAPTERS["mock"] = adapters.Adapter("mock", original.version, original.command,
+                                                     lambda stdout, telemetry: {**adapters.empty(), "output_tokens": 0, "error": "login expired"})
+        self.addCleanup(adapters.ADAPTERS.__setitem__, "mock", original)
+        _, records = self.run_plan()
+        self.assertEqual(records[0]["status"], "blocked")
+        self.assertIn("login expired", records[0]["blocked_reason"])
+
     def test_an_unexpected_error_in_one_run_is_recorded_and_the_batch_goes_on(self):
         self.only(args=["reference"])
         self.suite["harnesses"].append({"id": "mock-solves", "adapter": "mock", "args": ["reference"], "version": None})
@@ -562,6 +711,36 @@ class PipelineTests(unittest.TestCase):
             os.kill(agent, 0)
         self.assertEqual(set(Path(tempfile.gettempdir()).glob("hb-home-*")), before)
 
+    def test_keys_come_from_a_private_file_without_being_shown(self):
+        from harness_bench.__main__ import load_secrets, main
+        import contextlib, io
+        secrets = self.root / ".env"
+        secrets.write_text("# keys\nHB_TEST_ONE=alpha-secret\nexport HB_TEST_TWO=\"beta secret\"\nHB_TEST_EMPTY=\n\nHB_TEST_SET=from-file\n")
+        secrets.chmod(0o600)
+        os.environ["HB_TEST_SET"] = "from-shell"
+        for name in ("HB_TEST_ONE", "HB_TEST_TWO", "HB_TEST_EMPTY", "HB_TEST_SET"):
+            self.addCleanup(os.environ.pop, name, None)
+        self.assertEqual(load_secrets(secrets), ["HB_TEST_ONE", "HB_TEST_TWO"])
+        self.assertEqual((os.environ["HB_TEST_ONE"], os.environ["HB_TEST_TWO"], os.environ["HB_TEST_SET"]),
+                         ("alpha-secret", "beta secret", "from-shell"))
+        self.assertNotIn("HB_TEST_EMPTY", os.environ)
+        (self.root / "bad.env").write_text("this is not a key line\n")
+        with self.assertRaisesRegex(ValueError, "line 1"):
+            load_secrets(self.root / "bad.env")
+        # The key reaches the agent through the suite's env list, and its value is never printed.
+        for name in ("HB_TEST_ONE", "HB_TEST_TWO"):
+            os.environ.pop(name)
+        self.only(args=["reference"], env=["HB_TEST_ONE"])
+        plan = make_plan(runner.pin(self.suite, self.root, self.box))
+        (self.root / "plan.json").write_text(json.dumps(plan))
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            self.assertEqual(main(["run", "--plan", str(self.root / "plan.json"), "--sandbox", "local", "--root", str(self.root)]), 0)
+        self.assertIn("passed", output.getvalue())
+        self.assertIn("Loaded from", output.getvalue())
+        self.assertNotIn("alpha-secret", output.getvalue())
+        self.assertNotIn("alpha-secret", (self.root / "runs" / plan["plan_id"][:16] / "results.jsonl").read_text())
+
     def test_grading_a_folder_by_hand(self):
         from harness_bench.__main__ import main
         import contextlib, io
@@ -583,6 +762,124 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(main(["grade", "--task", str(task), "--workspace", str(task / "reference"), "--sandbox", "local",
                                    "--trusted", "--output", str(task / "reference" / "out")]), 2)
         self.assertIn("must not be inside the workspace", output.getvalue())
+
+    def by_hand_plan(self):
+        self.suite["modes"] = self.suite["modes"][:1]
+        self.suite["repetitions"] = 3
+        self.suite["harnesses"] = [
+            {"id": "mock-solves", "adapter": "mock", "args": ["reference"], "version": None},
+            {"id": "desk-app", "adapter": "manual", "version": "9.9", "repetitions": 1},
+        ]
+        return make_plan(runner.pin(self.suite, self.root, self.box))
+
+    def test_a_harness_run_by_hand_joins_the_same_results(self):
+        from harness_bench import manual
+        plan = self.by_hand_plan()
+        # One repeat for the app, three for the automatic harness.
+        self.assertEqual(sum(run["harness_id"] == "desk-app" for run in plan["runs"]), 1)
+        self.assertEqual(sum(run["harness_id"] == "mock-solves" for run in plan["runs"]), 3)
+        # `run` leaves the hand-run alone and says it is waiting.
+        said = []
+        records = runner.read_results(runner.execute(plan, self.root, self.box, log=said.append))
+        self.assertEqual(len(records), 3)
+        self.assertTrue(any("by hand" in line for line in said))
+        self.assertEqual(len(manual.waiting(plan, self.root)), 1)
+
+        workspace, prompt, run = manual.start(plan, self.root, "desk-app", "smoke-slugify")
+        self.assertEqual(prompt.read_text(), (self.root / "tasks/smoke-slugify/prompt.md").read_text())
+        self.assertTrue((workspace / "slugify.py").is_file())
+        self.assertFalse(any("check" in path.name for path in workspace.rglob("*")))
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            manual.start(plan, self.root, "desk-app", "smoke-slugify")
+        # The "app" does its work: here, by writing the reference solution into the folder.
+        shutil.copy(self.root / "tasks/smoke-slugify/reference/slugify.py", workspace / "slugify.py")
+        record = manual.finish(plan, self.root, self.box, "desk-app", "smoke-slugify", seconds=312, cost_usd=0.4,
+                               input_tokens=9000, output_tokens=800, interventions=1, app_version="9.9")
+        self.assertEqual((record["status"], record["checks_passed"], record["elapsed_seconds"], record["cost_usd"]),
+                         ("passed", 7, 312.0, 0.4))
+        self.assertEqual((record["manual"], record["human_interventions"], record["files_changed"], record["time_includes_handling"]),
+                         (True, 1, 1, False))
+        self.assertFalse(workspace.exists())
+        self.assertEqual(manual.waiting(plan, self.root), [])
+        with self.assertRaisesRegex(ValueError, "already recorded"):
+            manual.start(plan, self.root, "desk-app", "smoke-slugify")
+        everything = runner.read_results(self.root / "runs" / plan["plan_id"][:16] / "results.jsonl")
+        text = report(plan, everything, self.root)
+        self.assertIn("desk-app (manual)", text)
+        self.assertIn("run by hand in a desktop app", text)
+        self.assertIn('"has_manual": true', site.render(plan, everything, self.root))
+
+    def test_a_hand_run_without_a_typed_time_says_so_and_wrong_requests_are_refused(self):
+        from harness_bench import manual
+        plan = self.by_hand_plan()
+        with self.assertRaisesRegex(ValueError, "run automatically"):
+            manual.start(plan, self.root, "mock-solves", "smoke-slugify")
+        with self.assertRaisesRegex(ValueError, "no run"):
+            manual.start(plan, self.root, "desk-app", "smoke-slugify", repetition=2)
+        with self.assertRaisesRegex(ValueError, "manual-start first"):
+            manual.finish(plan, self.root, self.box, "desk-app", "smoke-slugify")
+        manual.start(plan, self.root, "desk-app", "smoke-slugify")
+        record = manual.finish(plan, self.root, self.box, "desk-app", "smoke-slugify")
+        self.assertEqual((record["status"], record["time_includes_handling"], record["cost_usd"], record["input_tokens"]),
+                         ("failed", True, None, None))
+
+    def test_results_carry_over_into_a_plan_that_only_adds_runs(self):
+        first = self.by_hand_plan()
+        made = runner.read_results(runner.execute(first, self.root, self.box, log=lambda _: None))
+        self.assertEqual(len(made), 3)
+        # Extending: one more harness run by hand. Nothing about the existing runs changes.
+        self.suite["harnesses"].append({"id": "second-app", "adapter": "manual", "version": "1.0", "repetitions": 1})
+        second = make_plan(runner.pin(self.suite, self.root, self.box))
+        self.assertNotEqual(first["plan_id"], second["plan_id"])
+        carried, skipped, refused = runner.carry_over(first, second, self.root)
+        self.assertEqual((len(carried), skipped, refused), (3, [], []))
+        moved = runner.read_results(self.root / "runs" / second["plan_id"][:16] / "results.jsonl")
+        self.assertEqual({r["run_id"] for r in moved}, {r["run_id"] for r in second["runs"] if r["harness_id"] == "mock-solves"})
+        self.assertEqual(sorted(r["carried_from"] for r in moved), sorted(r["run_id"] for r in made))
+        self.assertTrue(all((self.root / r["evidence_ref"] / "agent.stdout").is_file() for r in moved))
+        self.assertIn("mock-solves", report(second, moved, self.root))
+        self.assertEqual(runner.carry_over(first, second, self.root)[:2], ([], [r["run_id"] for r in made]))   # safe to repeat
+        self.assertEqual(len(runner.read_results(runner.execute(second, self.root, self.box, log=lambda _: None))), 3)  # nothing reruns
+        # Another harness's name for the model is not an input of these runs; this harness's own would be.
+        self.suite["models"][0]["harness_names"] = {"second-app": "some-other-name"}
+        renamed = make_plan(runner.pin(self.suite, self.root, self.box))
+        self.assertEqual(len(runner.carry_over(first, renamed, self.root)[0]), 3)
+        self.suite["models"][0]["harness_names"] = {"mock-solves": "a-different-model"}
+        self.assertEqual(len(runner.carry_over(first, make_plan(runner.pin(self.suite, self.root, self.box)), self.root)[2]), 3)
+        self.suite["models"][0].pop("harness_names")
+        # A longer time limit changes nothing about a run that ended on its own; the record says which limit it had.
+        shorter = self.suite["budget"]["timeout_seconds"]
+        self.suite["budget"]["timeout_seconds"] = shorter * 4
+        longer = make_plan(runner.pin(self.suite, self.root, self.box))
+        carried, _, refused = runner.carry_over(first, longer, self.root)
+        self.assertEqual((len(carried), refused), (3, []))
+        kept = runner.read_results(self.root / "runs" / longer["plan_id"][:16] / "results.jsonl")
+        self.assertEqual({r["made_under_timeout_seconds"] for r in kept}, {shorter})
+        self.suite["budget"]["timeout_seconds"] = max(1, shorter // 2)   # a shorter limit is a different test
+        self.assertEqual(len(runner.carry_over(first, make_plan(runner.pin(self.suite, self.root, self.box)), self.root)[2]), 3)
+        self.suite["budget"]["timeout_seconds"] = shorter
+        # A run whose inputs changed is not carried: here the harness is launched differently.
+        self.suite["harnesses"][0]["args"] = ["noop"]
+        third = make_plan(runner.pin(self.suite, self.root, self.box))
+        carried, _, refused = runner.carry_over(first, third, self.root)
+        self.assertEqual((carried, len(refused)), ([], 3))
+        self.assertIn("not the same", refused[0][1])
+
+    def test_a_hand_run_can_be_worked_on_outside_the_project(self):
+        from harness_bench import manual
+        plan = self.by_hand_plan()
+        elsewhere = self.root.parent / "elsewhere"
+        self.addCleanup(shutil.rmtree, elsewhere, True)
+        workspace, prompt, _ = manual.start(plan, self.root, "desk-app", "smoke-slugify", workspaces=elsewhere)
+        self.assertTrue(workspace.is_relative_to(elsewhere.resolve()) and not workspace.is_relative_to(self.root.resolve()))
+        self.assertFalse((self.root / "manual").exists())
+        with self.assertRaisesRegex(ValueError, "manual-start first"):   # looked for in the wrong place
+            manual.finish(plan, self.root, self.box, "desk-app", "smoke-slugify", seconds=5)
+        shutil.copy(self.root / "tasks/smoke-slugify/reference/slugify.py", workspace / "slugify.py")
+        (workspace / ".DS_Store").write_bytes(b"left by Finder when the folder was looked at")
+        record = manual.finish(plan, self.root, self.box, "desk-app", "smoke-slugify", seconds=5, workspaces=elsewhere)
+        self.assertEqual((record["status"], record["manual"], record["files_changed"]), ("passed", True, 1))
+        self.assertFalse(workspace.exists())
 
     def test_run_folders_are_unique(self):
         base = Path("/x")

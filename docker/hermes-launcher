@@ -1,0 +1,7 @@
+#!/bin/sh
+# Hermes reads its login from its own folder (HERMES_HOME), not from the home folder.
+# A login the runner copied into this run's home is put where Hermes looks for it.
+if [ -f "$HOME/.hermes/auth.json" ]; then
+    cp "$HOME/.hermes/auth.json" "$HERMES_HOME/auth.json" && chmod 600 "$HERMES_HOME/auth.json"
+fi
+exec "$HERMES_HOME/hermes-agent/.hermes/bin/hermes" "$@"

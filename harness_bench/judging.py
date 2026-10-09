@@ -17,6 +17,7 @@ import secrets
 import shlex
 import shutil
 import subprocess
+import tarfile
 import tempfile
 
 from . import tasks
@@ -50,8 +51,40 @@ def read_key(folder):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def prepare(plan, root, task_id, *, per_pair=None, seed=0, replace=False):
+# Left out when an attempt's files are unpacked for live viewing: nothing a page needs, and a lot of weight.
+NOT_FOR_VIEWING = (".git", ".git-as-left-by-agent", "node_modules")
+
+
+def unpack_for_viewing(archive, page, target):
+    """Unpack what an attempt left so that its page can be opened live, and say whether the page is there.
+
+    Only plain files are written, and only inside `target`: an archive holds whatever an agent made,
+    links and odd paths included.
+    """
+    if not Path(archive).is_file():
+        return False
+    try:
+        with tarfile.open(archive) as tar:
+            for member in tar:
+                parts = Path(member.name).parts
+                if (not member.isreg() or len(parts) < 2 or parts[0] != "workspace" or ".." in parts
+                        or any(part in NOT_FOR_VIEWING for part in parts)):
+                    continue
+                destination = target.joinpath(*parts[1:])
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with tar.extractfile(member) as source, open(destination, "wb") as copy:
+                    shutil.copyfileobj(source, copy)
+    except (OSError, tarfile.TarError):
+        shutil.rmtree(target, ignore_errors=True)
+        return False
+    return (target / page).is_file()
+
+
+def prepare(plan, root, task_id, *, per_pair=None, seed=0, replace=False, model=None):
     """Write runs/<plan>/judging/<task>/ and return its path.
+
+    With `model`, only that model's attempts are paired, in runs/<plan>/judging/<task>.<model>/:
+    harnesses are then compared on the same model, which is the comparison the suite is designed for.
 
     Preparing again draws new pairs under new names, which orphans any picks already made,
     so an existing folder is only overwritten when `replace` is set.
@@ -64,7 +97,7 @@ def prepare(plan, root, task_id, *, per_pair=None, seed=0, replace=False):
     task = tasks.load(root, entry)
     require(task.capture, f"task {task_id} has no capture settings, so there is nothing to look at")
     base = root / "runs" / plan["plan_id"][:16]
-    target = base / "judging" / task_id
+    target = base / "judging" / (task_id if model is None else f"{task_id}.{model}")
     require(replace or not (target.exists() or key_path(target).exists()),
             f"{target} already exists. Picks made for it would stop matching; pass --replace to discard it anyway")
     # Build beside the destination and swap in only once complete, so a failure costs nothing:
@@ -73,7 +106,7 @@ def prepare(plan, root, task_id, *, per_pair=None, seed=0, replace=False):
     shutil.rmtree(staging, ignore_errors=True)
     key_path(staging).unlink(missing_ok=True)
     try:
-        _prepare(plan, task, task_id, base, staging, per_pair, seed)
+        _prepare(plan, task, task_id, base, staging, per_pair, seed, model)
         shutil.rmtree(target, ignore_errors=True)
         os.replace(staging, target)
         os.replace(key_path(staging), key_path(target))
@@ -84,14 +117,16 @@ def prepare(plan, root, task_id, *, per_pair=None, seed=0, replace=False):
     return target
 
 
-def _prepare(plan, task, task_id, base, target, per_pair, seed):
+def _prepare(plan, task, task_id, base, target, per_pair, seed, model=None):
     configuration = plan["configuration"]
     (target / "media").mkdir(parents=True)
 
-    # Each attempt gets a random name, so neither file names nor page source reveal the harness.
+    # Each attempt gets a random name, so neither file names nor the judging page's source reveal the harness.
+    # An attempt's own page is shown as the agent wrote it; nothing stops an agent signing its work on screen.
     attempts, by_configuration = {}, {}
+    page = task.capture.get("path") if isinstance(task.capture, dict) else None
     for run in plan["runs"]:
-        if run["task_id"] != task_id:
+        if run["task_id"] != task_id or model not in (None, run.get("model_id")):
             continue
         frames = run_directory(base, run) / "capture"
         report = frames / "capture.json"
@@ -108,8 +143,11 @@ def _prepare(plan, task, task_id, base, target, per_pair, seed):
         for index, frame in enumerate(capture.get("clip") or []):
             shutil.copyfile(frames / frame["file"], target / "media" / name / f"clip-{index:03d}.jpg")
             clip.append(frame["offset_ms"])
+        # The page itself, where the run's files were kept: a judge can then move around in it, which a clip cannot show.
+        live = bool(page) and unpack_for_viewing(run_directory(base, run) / "workspace.tar.gz", page, target / "media" / name / "live")
         key = (run["harness_id"], run.get("model_id", configuration.get("model")), run.get("mode_id", "single"))
-        attempts[name] = {"run_id": run["run_id"], "configuration": list(key), "repetition": run["repetition"], "clip_ms": clip}
+        attempts[name] = {"run_id": run["run_id"], "configuration": list(key), "repetition": run["repetition"], "clip_ms": clip,
+                          "live": live}
         by_configuration.setdefault(key, []).append(name)
     require(len(by_configuration) >= 2, f"need captured attempts from at least two configurations for {task_id}")
 
@@ -133,9 +171,12 @@ def _prepare(plan, task, task_id, base, target, per_pair, seed):
     key = {"plan_id": plan["plan_id"], "task_id": task_id, "pairs_id": fingerprint, "prompt": task.prompt,
            "attempts": attempts, "pairs": pairs}
     key_path(target).write_text(json.dumps(key, indent=2) + "\n", encoding="utf-8")
-    page = {"task_id": task_id, "pairs_id": fingerprint, "prompt": task.prompt, "pairs": pairs,
-            "clips": {name: attempt["clip_ms"] for name, attempt in attempts.items()}}
-    (target / "index.html").write_text(PAGE.replace("/*DATA*/null", json.dumps(page).replace("<", "\\u003c")), encoding="utf-8")
+    shape = task.capture if isinstance(task.capture, dict) else {}
+    data = {"task_id": task_id, "pairs_id": fingerprint, "prompt": task.prompt, "pairs": pairs,
+            "clips": {name: attempt["clip_ms"] for name, attempt in attempts.items()},
+            "live": {name: f"live/{page}" for name, attempt in attempts.items() if attempt["live"]},
+            "aspect": [shape.get("width") or 16, shape.get("height") or 10]}
+    (target / "index.html").write_text(PAGE.replace("/*DATA*/null", json.dumps(data).replace("<", "\\u003c")), encoding="utf-8")
     return target
 
 
@@ -281,6 +322,8 @@ details pre { white-space: pre-wrap; font: inherit; background: var(--surface); 
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
 figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 figure img { display: block; width: 100%; height: auto; background: #000; }
+figure iframe { display: block; width: 100%; border: 0; background: #000; }
+figure [hidden] { display: none; }
 figcaption { padding: 6px 10px; color: var(--ink-2); font-size: 13px; }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin: 14px 0; }
 button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; cursor: pointer; }
@@ -303,9 +346,11 @@ textarea { width: 100%; height: 160px; margin-top: 16px; font: 12px ui-monospace
   </header>
   <details><summary>The task both attempts were given</summary><pre id="prompt"></pre></details>
   <div id="judging">
+    <!-- The attempts' own pages run in frames that may not open windows, leave the page or submit forms. They keep
+         their own origin: with it taken away, a 3D page stayed black in one browser this was tried in. -->
     <div class="pair">
-      <figure><img id="left" alt="Attempt on the left"><figcaption>Left</figcaption></figure>
-      <figure><img id="right" alt="Attempt on the right"><figcaption>Right</figcaption></figure>
+      <figure><img id="left" alt="Attempt on the left"><iframe id="left-live" title="Attempt on the left, live" sandbox="allow-scripts allow-same-origin allow-pointer-lock" hidden></iframe><figcaption>Left</figcaption></figure>
+      <figure><img id="right" alt="Attempt on the right"><iframe id="right-live" title="Attempt on the right, live" sandbox="allow-scripts allow-same-origin allow-pointer-lock" hidden></iframe><figcaption>Right</figcaption></figure>
     </div>
     <div class="bar">
       <button class="choice" data-answer="left">Left is better<kbd>&larr;</kbd></button>
@@ -315,9 +360,11 @@ textarea { width: 100%; height: 160px; margin-top: 16px; font: 12px ui-monospace
     <div class="bar">
       <button id="back">Back<kbd>&uarr;</kbd></button>
       <button id="motion">Show still<kbd>space</kbd></button>
+      <button id="restart" hidden>Restart both</button>
       <progress id="progress" value="0" max="1"></progress>
     </div>
     <p class="sub" style="text-align:center">Judge the result against the task: how well it meets the brief and how good it looks. You are not told which tool made which.</p>
+    <p class="sub" id="live-hint" style="text-align:center" hidden>These are the pages themselves, running: drag, scroll or press keys inside one as the task describes. Move the pointer off the pages before using the arrow keys to answer.</p>
   </div>
   <div id="done" hidden>
     <h1>All pairs judged</h1>
@@ -333,13 +380,20 @@ const storageKey = `picks:${DATA.task_id}:${DATA.pairs_id}`;
 let picks = {};
 try { picks = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (error) { picks = {}; }
 let index = Math.min(DATA.pairs.findIndex((pair) => !picks[pair.id]) < 0 ? DATA.pairs.length : DATA.pairs.findIndex((pair) => !picks[pair.id]), DATA.pairs.length);
-let moving = true, timer = null;
+// Three ways to look at a pair: the pages themselves running (where a run's files were kept), the recorded clip, one still.
+const live = DATA.live || {};
+const canRun = Object.keys(live).length > 0;
+let mode = canRun ? 'live' : 'clip', timer = null;
+const NEXT = { live: 'clip', clip: 'still', still: canRun ? 'live' : 'clip' };
+const OFFER = { live: 'Show live page', clip: canRun ? 'Show recorded clip' : 'Show motion', still: 'Show still' };
+for (const side of ['left', 'right']) $(`${side}-live`).style.aspectRatio = `${DATA.aspect[0]} / ${DATA.aspect[1]}`;
 
 function play(image, name) {
   const offsets = DATA.clips[name] || [];
   // The still shows at once; the clip takes over as its frames arrive, so a pane is never empty.
   image.src = `media/${name}/still.png`;
-  if (!moving || !offsets.length) return [];
+  // In the live view a side with no page to run falls back to its clip.
+  if (!(mode === 'clip' || (mode === 'live' && !live[name])) || !offsets.length) return [];
   // Preload every frame, then loop through them at the pace they were recorded.
   return offsets.map((_, frame) => { const preload = new Image(); preload.src = `media/${name}/clip-${String(frame).padStart(3, '0')}.jpg`; return preload; });
 }
@@ -351,17 +405,25 @@ function show() {
   $('done').hidden = !finished;
   $('count').textContent = `${Object.keys(picks).length} of ${DATA.pairs.length} judged`;
   $('progress').value = Object.keys(picks).length / DATA.pairs.length;
-  if (finished) { $('json').value = JSON.stringify(result(), null, 2); return; }
+  if (finished) { for (const side of ['left', 'right']) $(`${side}-live`).src = 'about:blank'; $('json').value = JSON.stringify(result(), null, 2); return; }
   const pair = DATA.pairs[index];
   $('back').disabled = index === 0;
-  $('motion').textContent = moving ? 'Show still' : 'Show motion';
+  $('motion').firstChild.textContent = OFFER[NEXT[mode]];
+  $('restart').hidden = $('live-hint').hidden = mode !== 'live';
+  // Both pages are loaded at the same moment, so that neither has a head start. A side whose files were not kept shows its clip.
+  for (const side of ['left', 'right']) {
+    const frame = $(`${side}-live`), running = mode === 'live' && Boolean(live[pair[side]]);
+    frame.hidden = !running;
+    $(side).hidden = running;
+    frame.src = running ? `media/${pair[side]}/${live[pair[side]]}` : 'about:blank';
+  }
   for (const button of document.querySelectorAll('.choice')) button.style.borderColor = picks[pair.id] === button.dataset.answer ? 'var(--accent)' : '';
   const reels = [[$('left'), pair.left], [$('right'), pair.right]].map(([image, name]) => ({ image, name, frames: play(image, name) }));
   const started = performance.now();
-  if (moving) timer = setInterval(() => {
+  if (reels.some((reel) => reel.frames.length)) timer = setInterval(() => {
     for (const reel of reels) {
       const offsets = DATA.clips[reel.name];
-      if (!offsets.length) continue;
+      if (!reel.frames.length) continue;
       const length = offsets[offsets.length - 1] + 150, now = (performance.now() - started) % length;
       let frame = 0;
       while (frame + 1 < offsets.length && offsets[frame + 1] <= now) frame += 1;
@@ -384,7 +446,12 @@ function answer(choice) {
 for (const button of document.querySelectorAll('.choice')) button.addEventListener('click', () => answer(button.dataset.answer));
 $('back').addEventListener('click', () => { index = Math.max(0, index - 1); show(); });
 $('review').addEventListener('click', () => { index = DATA.pairs.length - 1; show(); });
-$('motion').addEventListener('click', () => { moving = !moving; show(); });
+$('motion').addEventListener('click', () => { mode = NEXT[mode]; show(); });
+$('restart').addEventListener('click', show);
+// Keys pressed while a page has the focus go to that page. Leaving it hands them back, so the arrows answer again.
+for (const figure of document.querySelectorAll('figure')) figure.addEventListener('mouseleave', () => {
+  if (document.activeElement && document.activeElement.tagName === 'IFRAME') document.activeElement.blur();
+});
 $('judge').addEventListener('input', () => { $('json').value = JSON.stringify(result(), null, 2); });
 $('save').addEventListener('click', () => {
   const link = document.createElement('a');

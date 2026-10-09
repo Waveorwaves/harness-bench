@@ -2,18 +2,30 @@
   "schema_version": 2,
   "suite_id": "pilot-v1",
   "notes": [
-    "DRAFT. Nothing here has been run. Confirm each harness with `check` and one `run --limit 1` before trusting it.",
-    "Logins: the entries below copy your real login files into each container, where the agent can read them. Prefer a second login made just for this (log in again with the harness's home pointed at a folder you keep for the benchmark) and point `credentials` at that file; then also set \"write_back_logins\": true so refreshed tokens are kept.",
-    "Model names are as listed by `pi --list-models` on 2026-10-05. Other harnesses may spell them differently: add harness_names.",
-    "codex is limited to the GPT model until a DeepSeek provider is configured for it (harness_args plus an API key in env).",
-    "Add the third model and the other harnesses (claude, omp, opencode, droid, hermes) once these two work.",
-    "price_per_mtok is empty, so list-price cost stays unknown until you fill it from the providers' price pages."
+    "Probed on 2026-10-06 (suites/probe.json): each of the five command-line harnesses solved the smallest task once on each model, and its tokens were read correctly. No run of this suite's own tasks has been made yet.",
+    "DeepSeek: the key comes from DEEPSEEK_API_KEY in the project's .env file and is passed only into runs that use that model. Pi, omp, OpenCode and Hermes read that variable themselves. Codex is pointed at DeepSeek by the `-c model_providers.deepseek...` settings below, using the newer request style (`wire_api = \"responses\"`), which DeepSeek's service accepts; current Codex rejects the older `wire_api = \"chat\"`.",
+    "Codex subscription: a sign-in, not a key. `credentials` copies a login file into each run's throwaway home, where the agent can read it. For Pi, omp and OpenCode the file copied is a trimmed one made by `python3 scripts/snapshot_logins.py`, holding only the ChatGPT sign-in and none of your other ones; rerun that script after signing in again. Tokens last about ten days, so sign in within a few days of a run and nothing needs refreshing part-way through.",
+    "Signed in to ChatGPT on 2026-10-06: omp and OpenCode (tokens good until 2026-10-16), Hermes (until 2026-10-13) and Codex. All run both models.",
+    "Pi was signed in on 2026-10-06 with its newer 'Sign in with ChatGPT' option, stored as provider `openai`, so its model is `openai/gpt-6.1-sol`. That sign-in's tokens last one hour and are renewed on use, so Pi has `write_back_logins` on: a renewed login is saved back to the benchmark-only copy for the next run. Do not rerun the snapshot script for Pi mid-run (it would put the older copy back), and expect to sign in to Pi again on the Mac afterwards. If renewal fails in the probe, sign in with Pi's 'OpenAI (ChatGPT Plus/Pro)' option instead, whose tokens last about ten days, and change the model name back to `openai-codex/gpt-6.1-sol`.",
+    "Every command-line harness here can use both models. What limits a row is only whether that harness is signed in: see the next notes.",
+    "Model names: DeepSeek's own model list returned `deepseek-flash` and `deepseek-v4-pro` for this key on 2026-10-06, and Pi and OpenCode list the same, so every harness is asked for `deepseek-flash`.",
+    "Claude Code is deliberately left out of this comparison (decided 2026-10-05).",
+    "Capy is a desktop app run by hand (manual-start, manual-finish). It only works with the Codex subscription unless you pay for bring-your-own-key, so it is filed under gpt-6-1-sol only: three tasks, once each.",
+    "codex-app is Codex run by hand in the desktop app on the same three tasks, beside the automatic Codex command-line rows. The app bundles the same engine, so comparing the two shows whether command-line results carry over to the app.",
+    "price_per_mtok (US dollars per million tokens) is copied from Pi 1.0.4's built-in price list on 2026-10-06; the DeepSeek figures reproduce the cost Pi reported in the probe. Check both against the providers' price pages before publishing. For gpt-6.1-sol the higher rate above 272,000 input tokens is ignored, and on a subscription the figure is a list-price estimate, not a bill.",
+    "Codex on deepseek-flash works but is costly: in the probe it sent about 405,000 input tokens for the smallest task, roughly twenty times what Pi sent, after warning that it has no built-in settings for that model. `run --harness` and `run --model` let that cell be run separately or left out without changing the plan.",
+    "Every desktop app run by hand does all nine tasks once, like the command-line harnesses, so both kinds can be read on one page. This was widened on 2026-10-07 from three tasks per app; the 90 command-line runs already made were carried into the new plan unchanged (`carry-over`), each marked with the run it came from.",
+    "Devin runs through its command-line tool in the sandbox like the other command-line harnesses (added 2026-10-07). Its own agent cannot use the Codex subscription, so its gpt-6.1-sol runs use the same model and effort from the Devin plan (`gpt-6-1-sol-medium`): the route to the model differs from the other harnesses', which may affect speed. Devin's price list for that model matches the one used here. The Devin desktop app's 'Devin Local' is this same engine.",
+    "deepseek-flash-high is DeepSeek's own API again, at an effort DeepSeek really has. The earlier deepseek-flash runs asked for 'medium', which DeepSeek does not offer, so each harness translated it its own way (thinking on at the default level in Pi, OpenCode and Hermes; no reasoning tokens reported by omp; unknown for Codex). They are kept, as run. Compare harnesses on DeepSeek using the high rows.",
+    "deepseek-v4-1-flash-plan is 'DeepSeek V4.1 Flash' as each plan hosts it, at high: Devin's plan and Droid's plan. It is a separate model group because the host differs, and possibly the model version: DeepSeek's own API calls its model `deepseek-flash`. Its cost column uses DeepSeek's own list prices so that token use can be compared; the plans themselves charge differently (Devin lists $0.22 input, $0.01 cached, $0.66 output per million).",
+    "Droid runs through its command-line tool in the sandbox (added 2026-10-08), signed in with FACTORY_API_KEY from .env. Its gpt-6.1-sol runs use the Droid plan's own route, like Devin's. For deepseek-flash-high it uses a custom model that calls DeepSeek's API with DEEPSEEK_API_KEY (docker/droid-settings.json), so that row differs from the Droid plan row only in the route.",
+    "The time limit is a safety stop of 60 minutes, not part of the test (raised from 15 minutes on 2026-10-08, because time is itself one of the things measured and several pirate-ship runs were being cut off). Runs that ended on their own under the 15-minute limit are unchanged by this and were carried over; each carries `made_under_timeout_seconds`. Runs that were cut off at 15 minutes are kept and marked the same way; where one was made again without the cut-off, the new record notes the earlier attempt."
   ],
   "comparison": "controlled",
   "seed": 20261005,
   "repetitions": 3,
   "budget": {
-    "timeout_seconds": 900,
+    "timeout_seconds": 3600,
     "max_retries": 0
   },
   "models": [
@@ -23,9 +35,29 @@
       "reasoning_effort": "medium",
       "billing": "subscription",
       "harness_names": {
-        "pi": "openai-codex/gpt-6.1-sol"
+        "pi": "openai/gpt-6.1-sol",
+        "omp": "openai-codex/gpt-6.1-sol",
+        "opencode": "openai/gpt-6.1-sol",
+        "devin": "gpt-6-1-sol-medium",
+        "droid": "gpt-6.1-sol",
+        "deepseek-harness": "openai-codex/gpt-6.1-sol"
       },
-      "price_per_mtok": null
+      "price_per_mtok": {
+        "input": 2.0,
+        "cached_input": 0.1,
+        "cache_write": 2.5,
+        "output": 10.0
+      },
+      "harness_args": {
+        "hermes": [
+          "--provider",
+          "openai-codex"
+        ],
+        "deepseek-harness": [
+          "--patch",
+          "/hb/home/.dsh/overlays/codex-models.yml"
+        ]
+      }
     },
     {
       "id": "deepseek-flash",
@@ -33,9 +65,127 @@
       "reasoning_effort": "medium",
       "billing": "api",
       "harness_names": {
-        "pi": "deepseek/deepseek-flash"
+        "pi": "deepseek/deepseek-flash",
+        "omp": "deepseek/deepseek-flash",
+        "opencode": "deepseek/deepseek-flash"
       },
-      "price_per_mtok": null
+      "price_per_mtok": {
+        "input": 0.3,
+        "cached_input": 0.006,
+        "cache_write": 0.0,
+        "output": 1.2
+      },
+      "harness_args": {
+        "hermes": [
+          "--provider",
+          "deepseek"
+        ],
+        "codex": [
+          "-c",
+          "model_provider=\"deepseek\"",
+          "-c",
+          "model_providers.deepseek.name=\"DeepSeek\"",
+          "-c",
+          "model_providers.deepseek.base_url=\"https://api.deepseek.com/v1\"",
+          "-c",
+          "model_providers.deepseek.env_key=\"DEEPSEEK_API_KEY\"",
+          "-c",
+          "model_providers.deepseek.wire_api=\"responses\""
+        ]
+      },
+      "harness_env": {
+        "pi": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "omp": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "opencode": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "hermes": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "codex": [
+          "DEEPSEEK_API_KEY"
+        ]
+      }
+    },
+    {
+      "id": "deepseek-flash-high",
+      "name": "deepseek-flash",
+      "reasoning_effort": "high",
+      "billing": "api",
+      "harness_names": {
+        "pi": "deepseek/deepseek-flash",
+        "omp": "deepseek/deepseek-flash",
+        "opencode": "deepseek/deepseek-flash",
+        "droid": "custom:deepseek-flash-0",
+        "deepseek-harness": "deepseek-official/deepseek-flash"
+      },
+      "harness_args": {
+        "hermes": [
+          "--provider",
+          "deepseek"
+        ],
+        "codex": [
+          "-c",
+          "model_provider=\"deepseek\"",
+          "-c",
+          "model_providers.deepseek.name=\"DeepSeek\"",
+          "-c",
+          "model_providers.deepseek.base_url=\"https://api.deepseek.com/v1\"",
+          "-c",
+          "model_providers.deepseek.env_key=\"DEEPSEEK_API_KEY\"",
+          "-c",
+          "model_providers.deepseek.wire_api=\"responses\""
+        ]
+      },
+      "harness_env": {
+        "pi": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "omp": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "opencode": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "hermes": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "codex": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "droid": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "deepseek-harness": [
+          "DEEPSEEK_API_KEY"
+        ]
+      },
+      "price_per_mtok": {
+        "input": 0.3,
+        "cached_input": 0.006,
+        "cache_write": 0.0,
+        "output": 1.2
+      }
+    },
+    {
+      "id": "deepseek-v4-1-flash-plan",
+      "name": "deepseek-v4.1-flash",
+      "reasoning_effort": "high",
+      "billing": "subscription",
+      "harness_names": {
+        "devin": "deepseek-v4-1-flash-high",
+        "droid": "deepseek-v4.1-flash"
+      },
+      "price_per_mtok": {
+        "input": 0.3,
+        "cached_input": 0.006,
+        "cache_write": 0.0,
+        "output": 1.2
+      }
     }
   ],
   "modes": [
@@ -109,7 +259,9 @@
         "~/.codex/auth.json:.codex/auth.json"
       ],
       "models": [
-        "gpt-6-1-sol"
+        "gpt-6-1-sol",
+        "deepseek-flash",
+        "deepseek-flash-high"
       ]
     },
     {
@@ -117,7 +269,111 @@
       "adapter": "pi",
       "version": null,
       "credentials": [
-        "~/.pi/agent/auth.json:.pi/agent/auth.json"
+        "~/.harness-bench/logins/pi/auth.json:.pi/agent/auth.json"
+      ],
+      "write_back_logins": true,
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash",
+        "deepseek-flash-high"
+      ]
+    },
+    {
+      "id": "omp",
+      "adapter": "omp",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/omp/agent.db:.omp/agent/agent.db"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash",
+        "deepseek-flash-high"
+      ]
+    },
+    {
+      "id": "opencode",
+      "adapter": "opencode",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/opencode/auth.json:.local/share/opencode/auth.json"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash",
+        "deepseek-flash-high"
+      ]
+    },
+    {
+      "id": "hermes",
+      "adapter": "hermes",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/hermes/auth.json:.hermes/auth.json"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash",
+        "deepseek-flash-high"
+      ]
+    },
+    {
+      "id": "devin",
+      "adapter": "devin",
+      "version": null,
+      "credentials": [
+        "~/.local/share/devin/credentials.toml:.local/share/devin/credentials.toml"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-v4-1-flash-plan"
+      ]
+    },
+    {
+      "id": "droid",
+      "adapter": "droid",
+      "version": null,
+      "env": [
+        "FACTORY_API_KEY"
+      ],
+      "credentials": [
+        "docker/droid-settings.json:.factory/settings.json"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash-high",
+        "deepseek-v4-1-flash-plan"
+      ]
+    },
+    {
+      "id": "codex-app",
+      "adapter": "manual",
+      "version": "ChatGPT desktop 26.928.20755 (codex-cli 0.159.0)",
+      "models": [
+        "gpt-6-1-sol"
+      ],
+      "repetitions": 1
+    },
+    {
+      "id": "capy",
+      "adapter": "manual",
+      "version": "Capy desktop 0.4.2",
+      "models": [
+        "gpt-6-1-sol"
+      ],
+      "repetitions": 1
+    },
+    {
+      "id": "deepseek-harness",
+      "adapter": "dsh",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/dsh/credentials.yaml:.dsh/.credentials.yaml",
+        "docker/dsh-codex-models.yml:.dsh/overlays/codex-models.yml"
+      ],
+      "models": [
+        "gpt-6-1-sol",
+        "deepseek-flash-high"
       ]
     }
   ]

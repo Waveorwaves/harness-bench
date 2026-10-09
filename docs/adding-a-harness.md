@@ -25,11 +25,14 @@ Adapter("name", ("name", "--version"), name_command, name_parse, env={})
 | Harness | Command checked against `--help` | Usage parser |
 |---|---|---|
 | Claude Code | yes | checked against the real output of one trivial call (2.1.289, 2026-10-05), including the subagent count; not yet checked on a full task run |
-| Codex | yes | written from the JSON event format; not yet checked on a live run |
-| Pi | yes | written from Pi's bundled JSON-mode docs; not yet checked on a live run |
-| oh-my-pi | yes | shares Pi's parser; not yet checked on a live run |
-| OpenCode | yes | written from memory of the event format; the least certain |
-| Hermes | yes | reads its `--usage-file` report, field names taken from its source |
-| Droid | yes | none yet: runs record time and checks but no tokens |
+| Codex | yes | checked against a real run in Docker (codex-cli 0.160.1, 2026-10-06): tokens, cached tokens and tool calls match the raw output; a subscription reports no cost |
+| Pi | yes | checked against a real run in Docker (Pi 1.0.4, 2026-10-06): tokens, reported cost, model calls and tool calls match the raw output; a login failure it exits cleanly from is detected |
+| oh-my-pi | yes | shares Pi's parser; checked against real runs in Docker on both models (omp 18.6.1, 2026-10-06) |
+| OpenCode | yes | checked against real runs in Docker on both models (1.18.34, 2026-10-06): tokens, cost, steps and tool calls match the raw output. Its own cost uses its own price list, which differs from Pi's |
+| Hermes | yes | checked against real runs in Docker on both models (0.21.5, 2026-10-06): tokens and model calls match its usage report. It reports no tool-call count, and its cost is an estimate, which is not recorded |
+| Droid | yes | checked against a real run in Docker (droid 0.235.0, 2026-10-08): tokens and turns from its result object; no tool-call count. Its help text lists models incompletely: ask for a model by id to see whether it is offered |
+| Devin | yes | reads the session it exports; checked against a real run in Docker (devin 3000.11.3, 2026-10-07): tokens, model calls and tool calls |
+
+Installed in the image: Codex, Pi, oh-my-pi (which needs Bun), OpenCode, Claude Code, and, through their vendors' own installers, Droid and Hermes. Hermes keeps its login in its own folder rather than the home folder, so the image wraps it in a small launcher (`docker/hermes-launcher`) that moves a copied login into place.
 
 Hosted agents with no local command line (Devin, Capy) do not fit this adapter shape. They need an adapter that submits the task through their API and downloads the resulting workspace, and they cannot be given a model of your choice, so they belong in a separate "as sold" comparison.

@@ -112,6 +112,8 @@ def make_plan(suite):
                 for field in ("args", "env", "credentials"):
                     require(strings(entry.get(field, [])), f"{field} must be a list of strings: {name}")
                 require(type(entry.get("write_back_logins", False)) is bool, f"write_back_logins must be true or false: {name}")
+                # A harness run by hand can be given fewer repeats than the rest.
+                require(integer(entry.get("repetitions", 1), 1), f"harness repetitions must be a positive whole number: {name}")
                 # A harness can be limited to the modes, models and tasks it is able to run.
                 for field in ("modes", "models", "tasks"):
                     chosen = entry.get(field)
@@ -137,7 +139,8 @@ def make_plan(suite):
         for harness in harnesses:
             if mode and (mode["id"] not in harness.get("modes", [mode["id"]])
                          or model["id"] not in harness.get("models", [model["id"]])
-                         or task["id"] not in harness.get("tasks", [task["id"]])):
+                         or task["id"] not in harness.get("tasks", [task["id"]])
+                         or repetition > harness.get("repetitions", repetition)):
                 continue
             run = {"task_id": task["id"], "harness_id": harness["id"], "repetition": repetition}
             parts = [task["id"], harness["id"]]
@@ -381,7 +384,8 @@ def run_details(plan, records, root):
             "model": run.get("model_id", configuration.get("model")), "mode": run.get("mode_id", "single"),
             "repetition": run["repetition"], "status": record["status"], "folder": record["evidence_ref"],
             "failed": failed,
-            "reason": private(record.get("blocked_reason") or record.get("evaluator_error") or "", root or ".") or None,
+            "reason": private(record.get("blocked_reason") or record.get("evaluator_error")
+                              or record.get("harness_error") or "", root or ".") or None,
             # Lines touched, as a multiple of what the reference solution touches.
             "change_ratio": (round((record["lines_added"] + record["lines_removed"]) / sizes[run["task_id"]], 2)
                              if run["task_id"] in sizes and record.get("lines_added") is not None
@@ -390,6 +394,8 @@ def run_details(plan, records, root):
                 "checks_passed", "checks_total", "elapsed_seconds", "input_tokens", "cached_input_tokens",
                 "output_tokens", "cost_usd", "list_price_usd", "turns", "tool_calls", "subagents",
                 "files_changed", "lines_added", "lines_removed", "exit_code")},
+            # Anything a person added about this run: an earlier attempt, a figure that was derived.
+            "note": record.get("note"),
         })
     hardest = sorted(({"task": task, "name": name, "passed": passed, "runs": total}
                       for (task, name), (passed, total) in checks.items()),
@@ -406,6 +412,7 @@ def summarize(plan, records, root=None):
     by_id = {record["run_id"]: record for record in records}
     configuration = plan["configuration"]
     mock = {h["id"] for h in configuration["harnesses"] if h.get("adapter") == "mock"}
+    by_hand = {h["id"] for h in configuration["harnesses"] if h.get("adapter") == "manual"}
     groups = {}
     for run in plan["runs"]:
         key = (run["harness_id"], run.get("model_id", configuration.get("model")), run.get("mode_id", "single"))
@@ -428,7 +435,8 @@ def summarize(plan, records, root=None):
                 cell["passed"] += status == "passed"
                 cell["attempted"] += status in ("passed", "failed", "timed_out")
             rows.append({
-                "harness": harness_id, "mock": harness_id in mock, "model": model, "mode": mode,
+                "harness": harness_id, "mock": harness_id in mock, "manual": harness_id in by_hand,
+                "model": model, "mode": mode,
                 **counts, "pending": len(runs) - len(results), "recorded": len(results), "attempted": attempted,
                 "pass_rate": counts["passed"] / attempted if attempted else None,
                 "interval": wilson(counts["passed"], attempted),
@@ -446,6 +454,8 @@ def summarize(plan, records, root=None):
                    for field in ("cost_usd", "list_price_usd")},
                 **{f"{field}_known": sum(r.get(field) is not None for r in results)
                    for field in ("cost_usd", "list_price_usd")},
+                # A run's reported cost can be a floor worked out from a total, not a figure read for that run.
+                "cost_usd_floor": any(r.get("cost_usd_is_floor") for r in results),
                 "cost_usd_per_run": per_run(results, "cost_usd"),
                 "list_price_usd_per_run": per_run(results, "list_price_usd"),
                 "cost_usd_per_pass": per_pass(results, "cost_usd", counts["passed"]),
@@ -469,7 +479,7 @@ def summarize(plan, records, root=None):
     return {
         "suite_id": configuration["suite_id"], "plan_id": plan["plan_id"], "ready": plan["ready"],
         "not_ready_reasons": plan["not_ready_reasons"], "recorded": len(records), "planned": len(plan["runs"]),
-        "repetitions": configuration["repetitions"], "has_mock": bool(mock),
+        "repetitions": configuration["repetitions"], "has_mock": bool(mock), "has_manual": bool(by_hand),
         "tasks": [task["id"] for task in configuration["tasks"]],
         "models": list(dict.fromkeys(row["model"] for row in rows)),
         "modes": list(dict.fromkeys(row["mode"] for row in rows)),
@@ -494,7 +504,7 @@ def report(plan, records, root=None):
              "|---|---|---|---:|---:|---:|---:|---:|---|---:|---|---:|---|---:|---|---|"]
     names = {}
     for row in summary["rows"]:
-        name = names[id(row)] = row["harness"] + (" (mock)" if row["mock"] else "")
+        name = names[id(row)] = row["harness"] + (" (mock)" if row["mock"] else " (manual)" if row["manual"] else "")
         rate = (f"{row['pass_rate']:.0%} ({row['interval'][0]:.0%}–{row['interval'][1]:.0%}, n={row['attempted']})"
                 if row["attempted"] else "unknown")
         seconds = f"{row['seconds']:.2f} ({row['seconds_known']}/{row['attempted']})" if row["seconds_known"] else "unknown"
@@ -546,6 +556,8 @@ def report(plan, records, root=None):
                      + [f"| {item['task']} | {item['name']} | {item['passed']}/{item['runs']} |" for item in hardest])
     if summary["not_ready_reasons"]:
         lines.extend(["", "Missing pins:", ""] + [f"- {reason}" for reason in summary["not_ready_reasons"]])
+    if summary["has_manual"]:
+        lines.extend(["", "Rows marked (manual) were run by hand in a desktop app, outside the sandbox, with the model chosen in the app. Their time includes the person's handling unless a time was typed in, and tokens and cost are whatever was typed in."])
     if summary["has_mock"]:
         lines.extend(["", "Rows marked (mock) come from the built-in fake agent that exercises the pipeline; they are not benchmark measurements."])
     lines.extend(["", "No ranking is inferred. Missing measurements remain unknown. Timing includes all measured statuses; compare quality and failures alongside speed.",

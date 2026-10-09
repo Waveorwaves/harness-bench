@@ -1,0 +1,12 @@
+{
+  "judge": "Wave",
+  "kind": "person",
+  "task_id": "pirate-ship-3d",
+  "pairs_id": "7f99d8e66f03",
+  "picks": [
+    {
+      "pair": "p001",
+      "winner": "left"
+    }
+  ]
+}

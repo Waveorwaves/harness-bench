@@ -1,0 +1,12 @@
+{
+  "customModels": [
+    {
+      "model": "deepseek-flash",
+      "displayName": "deepseek-flash",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKeyHelper": "printenv DEEPSEEK_API_KEY",
+      "provider": "generic-chat-completion-api",
+      "extraArgs": {"thinking": {"type": "enabled"}, "reasoning_effort": "high"}
+    }
+  ]
+}

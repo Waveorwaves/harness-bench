@@ -1,0 +1,149 @@
+{
+  "schema_version": 2,
+  "suite_id": "probe",
+  "comparison": "controlled",
+  "seed": 1,
+  "repetitions": 1,
+  "notes": [
+    "One run per harness and model on the smallest task, to confirm sign-ins and the DeepSeek key work and usage is read correctly.",
+    "price_per_mtok (US dollars per million tokens) is copied from Pi 1.0.4's built-in price list on 2026-10-06; the DeepSeek figures reproduce the cost Pi reported in the probe. Check both against the providers' price pages before publishing. For gpt-6.1-sol the higher rate above 272,000 input tokens is ignored, and on a subscription the figure is a list-price estimate, not a bill."
+  ],
+  "budget": {
+    "timeout_seconds": 600,
+    "max_retries": 0
+  },
+  "models": [
+    {
+      "id": "gpt-6-1-sol",
+      "name": "gpt-6.1-sol",
+      "reasoning_effort": "medium",
+      "billing": "subscription",
+      "harness_names": {
+        "pi": "openai/gpt-6.1-sol",
+        "omp": "openai-codex/gpt-6.1-sol",
+        "opencode": "openai/gpt-6.1-sol"
+      },
+      "price_per_mtok": {
+        "input": 2.0,
+        "cached_input": 0.1,
+        "cache_write": 2.5,
+        "output": 10.0
+      },
+      "harness_args": {
+        "hermes": [
+          "--provider",
+          "openai-codex"
+        ]
+      }
+    },
+    {
+      "id": "deepseek-flash",
+      "name": "deepseek-flash",
+      "reasoning_effort": "medium",
+      "billing": "api",
+      "harness_names": {
+        "pi": "deepseek/deepseek-flash",
+        "omp": "deepseek/deepseek-flash",
+        "opencode": "deepseek/deepseek-flash"
+      },
+      "price_per_mtok": {
+        "input": 0.3,
+        "cached_input": 0.006,
+        "cache_write": 0.0,
+        "output": 1.2
+      },
+      "harness_args": {
+        "hermes": [
+          "--provider",
+          "deepseek"
+        ],
+        "codex": [
+          "-c",
+          "model_provider=\"deepseek\"",
+          "-c",
+          "model_providers.deepseek.name=\"DeepSeek\"",
+          "-c",
+          "model_providers.deepseek.base_url=\"https://api.deepseek.com/v1\"",
+          "-c",
+          "model_providers.deepseek.env_key=\"DEEPSEEK_API_KEY\"",
+          "-c",
+          "model_providers.deepseek.wire_api=\"responses\""
+        ]
+      },
+      "harness_env": {
+        "pi": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "omp": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "opencode": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "hermes": [
+          "DEEPSEEK_API_KEY"
+        ],
+        "codex": [
+          "DEEPSEEK_API_KEY"
+        ]
+      }
+    }
+  ],
+  "modes": [
+    {
+      "id": "single",
+      "prompt_suffix": ""
+    }
+  ],
+  "tasks": [
+    {
+      "id": "smoke-slugify",
+      "spec": "tasks/smoke-slugify",
+      "seed_revision": null,
+      "evaluator_revision": null
+    }
+  ],
+  "harnesses": [
+    {
+      "id": "codex",
+      "adapter": "codex",
+      "version": null,
+      "credentials": [
+        "~/.codex/auth.json:.codex/auth.json"
+      ]
+    },
+    {
+      "id": "pi",
+      "adapter": "pi",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/pi/auth.json:.pi/agent/auth.json"
+      ],
+      "write_back_logins": true
+    },
+    {
+      "id": "omp",
+      "adapter": "omp",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/omp/agent.db:.omp/agent/agent.db"
+      ]
+    },
+    {
+      "id": "opencode",
+      "adapter": "opencode",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/opencode/auth.json:.local/share/opencode/auth.json"
+      ]
+    },
+    {
+      "id": "hermes",
+      "adapter": "hermes",
+      "version": null,
+      "credentials": [
+        "~/.harness-bench/logins/hermes/auth.json:.hermes/auth.json"
+      ]
+    }
+  ]
+}

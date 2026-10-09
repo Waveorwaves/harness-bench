@@ -1,0 +1,188 @@
+{
+  "judge": "Wave",
+  "kind": "person",
+  "task_id": "pirate-ship-3d",
+  "pairs_id": "1222812a24e4",
+  "picks": [
+    {
+      "pair": "p001",
+      "winner": "left"
+    },
+    {
+      "pair": "p002",
+      "winner": "tie"
+    },
+    {
+      "pair": "p003",
+      "winner": "right"
+    },
+    {
+      "pair": "p004",
+      "winner": "right"
+    },
+    {
+      "pair": "p005",
+      "winner": "right"
+    },
+    {
+      "pair": "p006",
+      "winner": "tie"
+    },
+    {
+      "pair": "p007",
+      "winner": "left"
+    },
+    {
+      "pair": "p008",
+      "winner": "left"
+    },
+    {
+      "pair": "p009",
+      "winner": "right"
+    },
+    {
+      "pair": "p010",
+      "winner": "right"
+    },
+    {
+      "pair": "p011",
+      "winner": "tie"
+    },
+    {
+      "pair": "p012",
+      "winner": "right"
+    },
+    {
+      "pair": "p013",
+      "winner": "left"
+    },
+    {
+      "pair": "p014",
+      "winner": "tie"
+    },
+    {
+      "pair": "p015",
+      "winner": "left"
+    },
+    {
+      "pair": "p016",
+      "winner": "tie"
+    },
+    {
+      "pair": "p017",
+      "winner": "right"
+    },
+    {
+      "pair": "p018",
+      "winner": "right"
+    },
+    {
+      "pair": "p019",
+      "winner": "left"
+    },
+    {
+      "pair": "p020",
+      "winner": "tie"
+    },
+    {
+      "pair": "p021",
+      "winner": "tie"
+    },
+    {
+      "pair": "p022",
+      "winner": "tie"
+    },
+    {
+      "pair": "p023",
+      "winner": "right"
+    },
+    {
+      "pair": "p024",
+      "winner": "tie"
+    },
+    {
+      "pair": "p025",
+      "winner": "tie"
+    },
+    {
+      "pair": "p026",
+      "winner": "tie"
+    },
+    {
+      "pair": "p027",
+      "winner": "right"
+    },
+    {
+      "pair": "p028",
+      "winner": "right"
+    },
+    {
+      "pair": "p029",
+      "winner": "tie"
+    },
+    {
+      "pair": "p030",
+      "winner": "right"
+    },
+    {
+      "pair": "p031",
+      "winner": "left"
+    },
+    {
+      "pair": "p032",
+      "winner": "left"
+    },
+    {
+      "pair": "p033",
+      "winner": "right"
+    },
+    {
+      "pair": "p034",
+      "winner": "tie"
+    },
+    {
+      "pair": "p035",
+      "winner": "left"
+    },
+    {
+      "pair": "p036",
+      "winner": "right"
+    },
+    {
+      "pair": "p037",
+      "winner": "tie"
+    },
+    {
+      "pair": "p038",
+      "winner": "tie"
+    },
+    {
+      "pair": "p039",
+      "winner": "tie"
+    },
+    {
+      "pair": "p040",
+      "winner": "left"
+    },
+    {
+      "pair": "p041",
+      "winner": "tie"
+    },
+    {
+      "pair": "p042",
+      "winner": "left"
+    },
+    {
+      "pair": "p043",
+      "winner": "tie"
+    },
+    {
+      "pair": "p044",
+      "winner": "right"
+    },
+    {
+      "pair": "p045",
+      "winner": "left"
+    }
+  ]
+}

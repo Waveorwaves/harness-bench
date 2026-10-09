@@ -141,6 +141,9 @@ def pin(suite, root, sandbox):
     with tempfile.TemporaryDirectory() as scratch:
         for entry in pinned["harnesses"]:
             adapter = adapters.get(entry["adapter"])
+            if adapter.id == "manual":
+                entry["version"] = entry.get("version") or "desktop app, version not recorded"
+                continue
             entry["version"] = version_of(adapter, sandbox, Path(scratch) / entry["id"])
     return pinned
 
@@ -431,6 +434,9 @@ def preflight(suite, root, sandbox):
             except ValueError as error:
                 note(False, f"harness {entry['id']}: {error}")
                 continue
+            if adapter.id == "manual":
+                lines.append(f"ok   harness {entry['id']}: run by hand (manual-start, then manual-finish)")
+                continue
             version = version_of(adapter, sandbox, Path(scratch) / entry["id"])
             pinned = entry.get("version")
             note(bool(version) and pinned in (None, version),
@@ -676,6 +682,14 @@ def execute_run(run, configuration, root, directory, sandbox, version):
         extra["usage_error"] = f"{type(error).__name__}: {error}"[:200]
     elapsed = round(outcome.elapsed_seconds, 3)
     extra.update(exit_code=outcome.exit_code, files_changed=files, lines_added=added, lines_removed=removed)
+    if usage.get("error"):
+        extra["harness_error"] = usage["error"]
+    if usage.get("error") and files == 0 and not usage["output_tokens"] and not outcome.timed_out:
+        # The harness itself says it could not reach the model, and nothing was produced: an expired
+        # login, say. It can exit cleanly after that, so the exit code alone would not show it.
+        archive_workspace(workspace, directory / "workspace.tar.gz")
+        return {**blocked(run, f"the harness reported an error before doing any work: {usage['error']}", evidence, extra),
+                "attempts": 1, "elapsed_seconds": elapsed}
     never_started = (not outcome.timed_out and outcome.exit_code != 0 and files == 0
                      and outcome.elapsed_seconds < NEVER_STARTED_SECONDS)
     if never_started:
@@ -722,12 +736,99 @@ def read_results(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def execute(plan, root, sandbox, *, limit=None, harness=None, retry_blocked=False, log=print):
+# Fields of a harness entry that say which runs it has, not how any one run is made.
+WHICH_RUNS = ("tasks", "models", "modes", "repetitions")
+
+
+def run_inputs(configuration, run):
+    """Everything that decides how one run is made. Two plans agree about a run when these are equal."""
+    find = lambda items, wanted: next((item for item in items if item["id"] == wanted), None)
+    harness = find(configuration["harnesses"], run["harness_id"])
+    model = find(configuration.get("models", []), run.get("model_id"))
+    if model:
+        # A model entry also holds other harnesses' names and options for it; only this harness's apply to this run.
+        per_harness = ("harness_names", "harness_args", "harness_env")
+        model = {**{key: value for key, value in model.items() if key not in per_harness},
+                 "name": model.get("harness_names", {}).get(harness["id"], model["name"]),
+                 "args": model.get("harness_args", {}).get(harness["id"], []),
+                 "env": model.get("harness_env", {}).get(harness["id"], [])}
+    return {"task": find(configuration["tasks"], run["task_id"]),
+            "harness": {key: value for key, value in harness.items() if key not in WHICH_RUNS},
+            "model": model,
+            "mode": find(configuration.get("modes", []), run.get("mode_id")),
+            "budget": configuration.get("budget"), "schema_version": configuration.get("schema_version")}
+
+
+def only_the_limit_was_raised(old, new):
+    """Do two sets of run inputs differ in nothing but a longer time limit?
+
+    A harness is never told its limit, so a run that ended on its own under the shorter limit is exactly
+    the run it would have been under the longer one. A run that was cut off is not: it is carried too,
+    so that it stays visible, but marked with the limit it was made under.
+    """
+    without = lambda inputs: {**inputs, "budget": {k: v for k, v in (inputs.get("budget") or {}).items() if k != "timeout_seconds"}}
+    before, after = ((inputs.get("budget") or {}).get("timeout_seconds") for inputs in (old, new))
+    return without(old) == without(new) and isinstance(before, (int, float)) and isinstance(after, (int, float)) and after > before
+
+
+def carry_over(old_plan, new_plan, root):
+    """Bring results into a plan that extends another. Returns (carried, skipped, refused).
+
+    A plan's id covers the whole suite, so adding a harness, a task for one harness, or more repeats
+    gives a new plan and an empty set of results. The runs already made are still valid for the new
+    plan when nothing about them changed: the same pinned task, harness entry, model, mode and budget.
+    Those are copied across with their stored files, each marked with the run it came from. A run
+    whose inputs differ is refused and has to be made again, with one exception: a longer time limit
+    (see `only_the_limit_was_raised`), where each record is marked with the limit it was made under.
+
+    The new plan may list the runs in a different order from the one they were made in; each record
+    keeps the time it really started.
+    """
+    validate_plan(old_plan)
+    validate_plan(new_plan)
+    root = Path(root).resolve()
+    old_base, new_base = (root / "runs" / plan["plan_id"][:16] for plan in (old_plan, new_plan))
+    require(old_base != new_base, "the two plans are the same")
+    place = lambda run: tuple(run.get(key) for key in ("task_id", "harness_id", "model_id", "mode_id", "repetition"))
+    old_runs = {run["run_id"]: run for run in old_plan["runs"]}
+    new_runs = {place(run): run for run in new_plan["runs"]}
+    new_base.mkdir(parents=True, exist_ok=True)
+    (new_base / "plan.json").write_text(json.dumps(new_plan, indent=2) + "\n", encoding="utf-8")
+    results = new_base / "results.jsonl"
+    done = {record["run_id"] for record in read_results(results)}
+    carried, skipped, refused = [], [], []
+    for record in read_results(old_base / "results.jsonl"):
+        old_run = old_runs.get(record["run_id"])
+        new_run = new_runs.get(place(old_run)) if old_run else None
+        if new_run is None:
+            refused.append((record["run_id"], "the new plan has no such run"))
+        elif new_run["run_id"] in done:
+            skipped.append(record["run_id"])
+        elif (before := run_inputs(old_plan["configuration"], old_run)) != (after := run_inputs(new_plan["configuration"], new_run)) \
+                and not only_the_limit_was_raised(before, after):
+            refused.append((record["run_id"], "its task, harness, model, mode or budget is not the same in the new plan"))
+        else:
+            moved = {**record, "run_id": new_run["run_id"], "carried_from": record["run_id"]}
+            if before != after:
+                moved.setdefault("made_under_timeout_seconds", before["budget"]["timeout_seconds"])
+            source, target = run_directory(old_base, old_run), run_directory(new_base, new_run)
+            if source.is_dir():
+                remove_tree(target)
+                shutil.copytree(source, target, symlinks=True)
+                moved["evidence_ref"] = target.relative_to(root).as_posix()
+            with results.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(moved) + "\n")
+            carried.append(new_run["run_id"])
+    return carried, skipped, refused
+
+
+def execute(plan, root, sandbox, *, limit=None, harness=None, model=None, repetition=None, retry_blocked=False, log=print):
     validate_plan(plan)
     require(plan["ready"], "plan is not ready: " + "; ".join(plan["not_ready_reasons"]))
     configuration = plan["configuration"]
     require(configuration["schema_version"] == 2, "only schema 2 suites can be executed")
-    real = [h["id"] for h in configuration["harnesses"] if h["adapter"] != "mock"]
+    real = [h["id"] for h in configuration["harnesses"] if h["adapter"] not in ("mock", "manual")]
+    by_hand = {h["id"] for h in configuration["harnesses"] if h["adapter"] == "manual"}
     require(sandbox.name != "local" or not real,
             f"the local sandbox has no isolation and only runs the mock adapter; use --sandbox docker for {', '.join(real)}")
     root = Path(root).resolve()
@@ -736,7 +837,13 @@ def execute(plan, root, sandbox, *, limit=None, harness=None, retry_blocked=Fals
     (base / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
     results = base / "results.jsonl"
     records = read_results(results)
-    selected = {run["run_id"] for run in plan["runs"] if harness in (None, run["harness_id"])}
+    wanted = set(harness.split(",")) if harness else None
+    unknown = (wanted or set()) - {h["id"] for h in configuration["harnesses"]}
+    require(not unknown, f"no such harness in this plan: {', '.join(sorted(unknown))}")
+    selected = {run["run_id"] for run in plan["runs"]
+                if (wanted is None or run["harness_id"] in wanted) and model in (None, run.get("model_id"))
+                and repetition in (None, run["repetition"])
+                and run["harness_id"] not in by_hand}
     if retry_blocked:
         records = [r for r in records if not (r["status"] == "blocked" and r["run_id"] in selected)]
         results.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
@@ -764,6 +871,9 @@ def execute(plan, root, sandbox, *, limit=None, harness=None, retry_blocked=Fals
             + (f" ({record['blocked_reason']})" if record["status"] == "blocked" else
                f" {record['checks_passed']}/{record['checks_total']} checks, {record['elapsed_seconds']}s"))
     shutil.rmtree(base / "_probe", ignore_errors=True)
+    hand_runs = sum(run["harness_id"] in by_hand and run["run_id"] not in done for run in plan["runs"])
+    if hand_runs:
+        log(f"{hand_runs} run(s) by hand are still waiting: see `manual-list`.")
     # Say plainly how the batch went, so a batch that was entirely blocked cannot pass unnoticed.
     tally = Counter(record["status"] for record in read_results(results) if record["run_id"] in {run["run_id"] for run in pending})
     if pending:

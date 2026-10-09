@@ -429,6 +429,8 @@ def main():
     parser.add_argument("--times", default="1000,3000")
     parser.add_argument("--probe", help="JavaScript expression evaluated in the page after the last frame")
     parser.add_argument("--script", help="JSON file of interaction steps to carry out on the page (see interact)")
+    parser.add_argument("--color-scheme", choices=("light", "dark", "system"), default="light",
+                        help="the light or dark preference the page is told about (default light)")
     parser.add_argument("--clip-ms", type=int, default=0, help="also record a clip of this length after the stills")
     parser.add_argument("--clip-frames", type=int, default=20)
     parser.add_argument("--clip-scale", type=float, default=0.5)
@@ -452,6 +454,10 @@ def main():
                     page.call(f"{domain}.enable")
                 page.call("Emulation.setDeviceMetricsOverride",
                           {"width": args.width, "height": args.height, "deviceScaleFactor": 1, "mobile": False})
+                if args.color_scheme != "system":
+                    # A page may follow the machine's light or dark setting; pin it so captures match everywhere.
+                    page.call("Emulation.setEmulatedMedia",
+                              {"features": [{"name": "prefers-color-scheme", "value": args.color_scheme}]})
                 page.call("Page.navigate", {"url": url})
                 result["loaded"] = page.listen(20, until="Page.loadEventFired")
                 loaded_at = time.monotonic()

@@ -1,8 +1,29 @@
 # Harness Bench
 
-Does the coding harness matter, or only the model? Harness Bench runs the same tasks with the same models through different agent harnesses (Claude Code, Codex, Pi, oh-my-pi, OpenCode, Droid, Hermes) and reports pass rate, time, tokens and cost for each, with the statistics needed to tell a real difference from run-to-run noise.
+Does the coding harness matter, or only the model? Harness Bench runs the same tasks with the same models through different agent harnesses (Codex, Pi, oh-my-pi, OpenCode, Hermes, Devin, Droid, DeepSeek Harness, and desktop apps run by hand; an adapter for Claude Code exists but was not part of the first pass) and reports pass rate, time, tokens and cost for each, with the statistics needed to tell a real difference from run-to-run noise.
 
-> **Status (2026-10-05): no real harness has been measured yet.** Everything here has been exercised with a built-in fake agent, reference solutions and stored sample solutions, including inside Docker. The pages under `docs/demo/` show those and are labelled as such. The next step is one probe run per real harness. See [What is and is not verified](#what-is-and-is-not-verified).
+> **Status (2026-10-08): a first pass has been run.** Ten harnesses, nine tasks, one run each (216 runs). Read the [first-pass report](docs/first-pass/README.md) with its limits before quoting any number: with one run per cell, no difference in pass rate is statistically clear. Repeats two and three of the plan have not been run.
+
+## First pass, in one table
+
+gpt-6.1-sol at medium effort, nine tasks, one run per harness and task:
+
+| Harness | Passed | Time | Cost | Tokens | 3D task, W-T-L |
+|---|---|---:|---|---:|---|
+| Codex app | 9 of 9 | 19 min | $1.29 | 3.15M | 5-4-0 |
+| Pi | 9 of 9 | 23 min | $0.75 | 0.64M | 3-6-0 |
+| DeepSeek Harness | 9 of 9 | 26 min | $1.13 | 2.43M | 2-5-2 |
+| Devin | 9 of 9 | 26 min | $1.57 | 4.15M | 5-4-0 |
+| Codex CLI | 9 of 9 | 27 min | $1.11 | 2.09M | 2-3-4 |
+| Capy | 9 of 9 | 27 min | at least $1.83 (own figure) | — | 0-1-8 |
+| OpenCode | 9 of 9 | 29 min | $1.06 | 1.60M | 2-2-5 |
+| Droid | 9 of 9 | 30 min | $1.33 | 2.36M | 4-5-0 |
+| Hermes Agent | 9 of 9 | 33 min | $1.41 | 2.95M | 0-1-8 |
+| oh-my-pi | 9 of 9 | 40 min | $1.40 | 2.92M | 4-5-0 |
+
+All ten passed all nine, so the differences are time, cost, tokens and how the one open-ended 3D task looked to a single blind judge (pairs won, tied and lost). Cost is tokens at one list price, an estimate and not a bill. The Codex app and Capy were run by hand on a Mac; the others ran headless in a container, so compare times within each group. DeepSeek results, per-task figures, token counts, every 3D page and the full list of limits are in the [report](docs/first-pass/README.md); the [data](docs/first-pass/data) is alongside.
+
+The picture and the demo pages below come from fake agents and stored sample solutions, to show the pipeline; they are not results.
 
 ![Results page, shown with fake agents](docs/img/results.png)
 
@@ -87,10 +108,23 @@ python3 -m harness_bench check --suite suites/pilot-v1.json        # tasks, imag
 python3 -m harness_bench pin   --suite suites/pilot-v1.json --output runs/pilot-pinned.json
 python3 -m harness_bench plan  --suite runs/pilot-pinned.json --output runs/pilot-plan.json
 python3 -m harness_bench run   --plan runs/pilot-plan.json --limit 1 --harness codex   # one cheap probe first
+python3 -m harness_bench run   --plan runs/pilot-plan.json --repetition 1               # a first pass: every task once
 python3 -m harness_bench run   --plan runs/pilot-plan.json                              # the rest; safe to stop and resume
 ```
 
-`suites/pilot-v1.json` is a draft with two harnesses and two models. Read its `notes` before running it.
+`suites/pilot-v1.json` is a draft with five command-line harnesses (Codex, Pi, oh-my-pi, OpenCode, Hermes), one desktop app run by hand, and two models. Read its `notes` before running it: they say which harness is signed in to what.
+
+### API keys
+
+Keys go in a file named `.env` in the project folder, which git ignores:
+
+```sh
+cp .env.example .env && chmod 600 .env     # then fill in the keys you use
+```
+
+Every command reads it (or another file given with `--env-file`); a variable already set in your shell wins. A key reaches a harness only if the suite lists its name in that harness's `env` (or a model's `harness_env`), and it travels through a private file, never the command line. Values are never printed or stored with results; `check` names any listed key that is missing.
+
+A key is for pay-per-use API access. A subscription (ChatGPT/Codex, for example) is a login, not a key, and cannot go in this file; see below.
 
 ### Logins
 
@@ -101,14 +135,45 @@ Login files named in `credentials` are copied into a throwaway home for each run
 
 The clean way around both is a second login kept only for the benchmark: log in again with the harness's home pointed at a folder of its own, and name that file in `credentials`. Then set `"write_back_logins": true` on the harness, and a refreshed login is copied back to that file after each run, provided it is a plain, non-empty file of the same shape reached through no link, with the previous few versions kept beside it as `<name>.harness-bench-backup-<time>`. Write-back cannot tell a genuine refresh from content the agent chose to write, which is why it is off unless you ask for it.
 
+A harness's own login file often holds more than the one sign-in a run needs (other providers, API keys), and oh-my-pi keeps its sign-ins in a database. `python3 scripts/snapshot_logins.py` writes trimmed copies holding only the ChatGPT sign-in to `~/.harness-bench/logins/`, for `credentials` to point at; rerun it after signing in again.
+
 If the runner is killed outright (`kill -9`, a crash, a power cut) it cannot clean up. `python3 -m harness_bench cleanup` removes leftover containers and throwaway homes.
 
-### Grading work done elsewhere
+### Desktop apps, run by hand
 
-Hosted agents such as Devin or Capy cannot be launched by the runner. Give one a task's `prompt.md` and `seed/` by hand, download what it produced, and grade the folder:
+Some harnesses are desktop apps that cannot be started unattended (Capy, the Codex app). The runner cannot launch them, so each of their runs is done by hand and then measured and graded by the tool, into the same results as everything else.
+
+DeepSeek Harness, Droid and Devin are desktop apps too, but each also ships a command-line tool built on the same engine (`dsh`, `droid`, `devin`), so they run in the sandbox like the rest.
+
+In the suite, give such a harness `"adapter": "manual"`, and usually fewer tasks and repeats than the rest:
+
+```json
+{"id": "capy", "adapter": "manual", "version": "the app's version",
+ "tasks": ["pirate-ship-3d", "todo-app", "kanban-undo"], "models": ["deepseek-flash"], "repetitions": 1}
+```
+
+Then, for each run:
 
 ```sh
-python3 -m harness_bench grade --task tasks/kanban-undo --workspace ~/Downloads/devin-kanban
+python3 -m harness_bench manual-list   --plan runs/pilot-plan.json            # what is still waiting
+python3 -m harness_bench manual-start  --plan runs/pilot-plan.json --harness capy --task todo-app
+# open the folder it prints in the app, select the model, paste the prompt it prints, let the app finish
+python3 -m harness_bench manual-finish --plan runs/pilot-plan.json --harness capy --task todo-app \
+    --seconds 312 --cost-usd 0.42 --input-tokens 90000 --output-tokens 8000 --interventions 0
+```
+
+Add `--workspaces <folder outside the project>` to both commands when the runs are to be compared with sandboxed ones: an app works on your real machine, and a folder inside the project sits a few levels below the task's hidden checks and reference solution.
+
+`manual-finish` measures the change, runs the hidden checks in Docker, takes the screenshots for a page, and records the run. What it cannot see, you type in from the app: time, tokens, cost, and how many times you had to step in. Anything you leave out stays unknown; without `--seconds` the time from start to finish is used and marked as including your handling.
+
+These rows are labelled (manual) in every report. They differ from automatic runs in ways no flag can fix: the app runs on your machine and not in the sandbox, you choose its model in its own settings, and its timing depends partly on you.
+
+### Grading a folder without recording it
+
+To check any folder against a task without adding it to the results:
+
+```sh
+python3 -m harness_bench grade --task tasks/kanban-undo --workspace ~/Downloads/some-attempt
 ```
 
 ## Suite format
@@ -142,6 +207,8 @@ python3 -m harness_bench grade --task tasks/kanban-undo --workspace ~/Downloads/
 | `harnesses[].credentials` | `host file:path under the container home`; copied into a throwaway home that is deleted after the run |
 | `harnesses[].write_back_logins` | `true` copies a login the harness refreshed back to its file afterwards; off by default (see Logins) |
 | `harnesses[].modes`, `models`, `tasks` | limit a harness to what it can run |
+| `harnesses[].repetitions` | fewer repeats for this harness than the suite's, for one run by hand |
+| `harnesses[].adapter` | which adapter launches it, or `manual` for a desktop app run by hand |
 | `seed_revision`, `evaluator_revision`, `version` | filled by `pin`; a run is blocked if they no longer match |
 
 ## Task format
@@ -169,14 +236,17 @@ The evaluator writes `$HB_OUT/result.json` as `{"checks": [{"name": "...", "pass
 | All 11 tasks | seed fails and reference passes; the 10 real tasks were also attempted blind from the prompt alone, and each was passed at least once ([details](docs/tasks.md)) |
 | Hidden checks | six tasks keep a real flawed attempt that the checks must fail in exactly the recorded way |
 | Screenshot capture and scripted interaction | tested on macOS with a Chromium-based browser, with and without a GPU; the interaction grading agreed with independently written pages |
-| Judging page, model judge, ranking | tested on stored sample solutions, with two model judges ([worked example](docs/demo/ranking.md)); no human picks collected yet |
-| Docker sandbox and image | built and run on Docker Desktop for macOS (2026-10-05): the preflight check validated all nine suite tasks inside containers, browser tasks included, and the fake-agent suite ran through it with every outcome (pass, fail, timeout, crash) and left nothing behind. Not run on Linux |
-| The other harness adapters | commands checked against each tool's `--help`; usage parsers tested on synthetic output only, **not on a live run** |
-| Droid usage | no parser yet |
+| Judging page, model judge, ranking | tested on stored sample solutions, with two model judges ([worked example](docs/demo/ranking.md)); one person's picks collected in the first pass (67 pairs), on a judging page that also runs the attempts' own pages side by side |
+| Docker sandbox and image | built and run on Docker Desktop for macOS (2026-10-05; rebuilt 2026-10-06 with oh-my-pi's Bun, Hermes and Droid, about 10 GB, and all six command-line harnesses start in it): the preflight check validated all nine suite tasks inside containers, browser tasks included, and the fake-agent suite ran through it with every outcome (pass, fail, timeout, crash) and left nothing behind. Not run on Linux |
+| Codex, Pi, oh-my-pi, OpenCode, Hermes, Devin, Droid and DeepSeek Harness adapters | each ran all nine tasks in Docker in the first pass (2026-10-07 and 08); their usage parsers were checked against the raw output of real runs |
+| Claude Code adapter | command checked against the tool's `--help`; **not run on a task** |
+| Runs by hand (Codex app, Capy) | nine tasks each in the first pass; time and usage taken from each app's own records |
+| First-pass write-up | generated from the recorded runs by `scripts/publish_first_pass.py`; one run per cell, so see its limits |
 | Retries | `max_retries` is recorded but every run gets one attempt |
 
 ## Documents
 
+- [First-pass report](docs/first-pass/README.md): ten harnesses, nine tasks, one run each, with data and limits.
 - [Methodology](docs/methodology.md): design, metrics, statistics, threats to validity.
 - [Tasks](docs/tasks.md): the task set and how it was calibrated.
 - [Visual track](docs/visual-track.md): capture, blind judging, ranking.

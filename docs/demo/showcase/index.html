@@ -20,19 +20,52 @@
   }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 24px; margin: 0 0 4px; }
-h2 { font-size: 17px; margin: 0 0 2px; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 36px 20px 80px; }
+h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; margin: 2px 0 6px; overflow-wrap: anywhere; }
+h2 { font-size: 18px; letter-spacing: -0.01em; margin: 0 0 2px; }
 p { margin: 0; }
+a { color: inherit; }
 .sub { color: var(--ink-2); }
-.note { color: var(--ink-2); font-size: 13px; margin-top: 10px; }
-.banner { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0; padding: 10px 12px; background: var(--surface);
-  border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 6px; }
-.filters { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0 4px; }
-.filters label { color: var(--ink-2); font-size: 13px; display: flex; gap: 6px; align-items: center; }
-select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 8px; }
-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.note { color: var(--ink-2); font-size: 13px; margin-top: 12px; }
+.eyebrow { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.top { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: flex-end; justify-content: space-between; }
+.banner { display: flex; gap: 10px; align-items: flex-start; margin: 20px 0 0; padding: 12px 14px; background: var(--surface);
+  border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 10px; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; }
+.filters label { color: var(--ink-2); font-size: 12px; font-weight: 600; display: grid; gap: 4px; }
+select { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 6px 10px; min-width: 120px; }
+select:focus-visible, a:focus-visible, summary:focus-visible, td:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 24px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; margin-top: 2px; }
+.tile .more { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.jump { position: sticky; top: 0; z-index: 4; display: flex; gap: 4px; overflow-x: auto; margin: 20px -20px 0; padding: 10px 20px;
+  background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.jump a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 13px; font-weight: 550; padding: 5px 11px; border-radius: 999px; }
+.jump a:hover { background: var(--surface); color: var(--ink); }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-top: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+.board td { padding: 12px 10px; vertical-align: middle; }
+.board th { padding: 6px 10px; }
+.board .who b { display: block; font-size: 15px; font-weight: 650; }
+.board .who span { color: var(--ink-2); font-size: 12px; }
+.board .who i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.board .rate { display: flex; align-items: center; gap: 12px; min-width: 250px; }
+.board .rate strong { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; min-width: 58px; font-variant-numeric: tabular-nums; }
+.bar { position: relative; flex: 1; height: 10px; min-width: 140px; background: var(--grid); border-radius: 5px; }
+.bar b { position: absolute; inset: 0 auto 0 0; border-radius: 0 5px 5px 0; }
+.bar u { position: absolute; top: 50%; height: 2px; margin-top: -1px; background: var(--ink); opacity: 0.55; border-radius: 1px; }
+.board .rate small, .board td small { display: block; color: var(--muted); font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--axis); border-radius: 999px; padding: 1px 10px 1px 8px; font-size: 12px; font-weight: 550; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--ink-2); }
+.pill.clear i { background: var(--ink); border-color: var(--ink); }
+details.fold > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after { content: "Show"; color: var(--ink-2); font-size: 13px; margin-left: auto; }
+details.fold[open] > summary::after { content: "Hide"; }
 svg { display: block; width: 100%; height: auto; margin-top: 10px; overflow: visible; }
 svg text { fill: var(--ink-2); font-size: 12px; }
 svg text.name { fill: var(--ink); font-size: 13px; }
@@ -48,8 +81,8 @@ svg text.tick { fill: var(--muted); font-variant-numeric: tabular-nums; }
 .empty { color: var(--ink-2); padding: 18px 0 6px; }
 .scroll { overflow-x: auto; margin-top: 10px; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--grid); white-space: nowrap; }
-th { color: var(--ink-2); font-weight: 600; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 600; font-size: 12px; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.heat td.cell { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface); border-radius: 4px; min-width: 48px; padding: 6px 4px; }
 table.heat th.task { text-align: center; white-space: normal; max-width: 76px; font-weight: 500; padding: 6px 4px; overflow-wrap: anywhere; }
@@ -63,8 +96,8 @@ table.heat th.task { text-align: center; white-space: normal; max-width: 76px; f
 .state i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .meter { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: var(--grid); vertical-align: middle; margin-right: 8px; overflow: hidden; }
 .meter b { display: block; height: 100%; background: var(--series-1); border-radius: 3px 0 0 3px; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 10px; }
-.gallery figure { margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--page); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 12px; }
+.gallery figure { margin: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--page); }
 .gallery img { display: block; width: 100%; height: auto; background: #000; }
 .gallery figcaption { padding: 6px 8px; font-size: 12px; color: var(--ink-2); }
 .gallery figcaption b { color: var(--ink); font-weight: 600; display: block; }
@@ -76,32 +109,43 @@ h3 { font-size: 14px; margin: 16px 0 0; }
 </head>
 <body>
 <main>
-  <h1 id="title"></h1>
-  <p class="sub" id="status"></p>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Harness Bench results</p>
+      <h1 id="title"></h1>
+      <p class="sub" id="status"></p>
+    </div>
+    <div class="filters">
+      <label>Mode <select id="mode"></select></label>
+      <label>Model <select id="model"></select></label>
+    </div>
+  </header>
   <div class="banner" id="mock" hidden><span aria-hidden="true">&#9888;</span>
     <p><strong>Pipeline test, not a measurement.</strong> Some or all rows come from the built-in fake agent, marked (mock).</p></div>
-  <div class="filters">
-    <label>Mode <select id="mode"></select></label>
-    <label>Model <select id="model"></select></label>
-  </div>
-  <section>
-    <h2>Pass rate</h2>
-    <p class="sub">Share of attempted runs that passed every hidden check. Lines show the 95% interval.</p>
-    <div id="rates"></div>
+  <div class="tiles" id="tiles"></div>
+  <nav class="jump" aria-label="Sections">
+    <a href="#board-section">Leaderboard</a><a href="#cost-section">Cost</a><a href="#pairs-section">Head to head</a>
+    <a href="#tasks-section">By task</a><a href="#hard-section">Checks</a><a href="#gallery-section" id="jump-gallery">Gallery</a>
+    <a href="#runs-section">Runs</a><a href="#numbers-section">Full table</a>
+  </nav>
+  <section id="board-section">
+    <h2>Leaderboard</h2>
+    <p class="sub">Share of attempted runs that passed every hidden check, best first. The thin line on each bar is the 95% interval: where bars' lines overlap, the order is not settled.</p>
+    <div class="scroll" id="board"></div>
   </section>
-  <section>
+  <section id="cost-section">
     <h2>Cost against pass rate</h2>
     <p class="sub" id="cost-sub"></p>
     <div id="scatter"></div>
   </section>
-  <section>
+  <section id="pairs-section">
     <h2>Head to head</h2>
     <p class="sub">Is the gap between two harnesses bigger than rerunning the same tasks would produce? Same model and mode only.</p>
     <p class="sub" id="overall" style="margin-top:8px"></p>
     <div class="scroll" id="pairs"></div>
     <p class="note" id="pairs-note"></p>
   </section>
-  <section>
+  <section id="tasks-section">
     <h2>By task</h2>
     <p class="sub">Passes out of attempted runs. Darker means more passes.</p>
     <div class="scroll" id="tasks"></div>
@@ -116,7 +160,7 @@ h3 { font-size: 14px; margin: 16px 0 0; }
     <p class="sub">A frame from each attempt at the visual tasks. These carry labels; for ranking, use the blind judging page.</p>
     <div id="gallery"></div>
   </section>
-  <section>
+  <section id="runs-section">
     <h2>Runs</h2>
     <p class="sub">Every recorded run in the selection. Open one to see which hidden checks it failed and where its files are.</p>
     <div class="filters" style="margin-top:10px">
@@ -127,11 +171,12 @@ h3 { font-size: 14px; margin: 16px 0 0; }
     <div class="runs" id="runs"></div>
     <p class="note" id="runs-note"></p>
   </section>
-  <section>
-    <h2>All numbers</h2>
-    <p class="sub">Sorted by pass rate. Configurations whose intervals overlap are not reliably different.</p>
+  <section id="numbers-section">
+    <details class="fold">
+    <summary><h2>Full table</h2><span class="sub">every number behind this page, and how each is defined</span></summary>
     <div class="scroll" id="table"></div>
     <p class="note">Pass rate leaves out blocked runs, which never fairly started or could not be graded for a reason outside the harness. Ungraded counts runs where the evaluator ran but produced no result; they are counted as failures and deserve a look. Cost per pass is the cost of every attempted run, failures included, divided by the number of passes. Reported cost is what the harness billed through an API. List-price cost is tokens multiplied by the suite's price table: an estimate, not an invoice. Change size is the median number of lines a run touched, as a multiple of what the reference solution touches: well above 1× suggests work beyond what was asked. A dash means the number is unknown.</p>
+    </details>
   </section>
 </main>
 <div id="tip" role="status"></div>
@@ -202,38 +247,73 @@ function legend(rows) {
   return box;
 }
 
-function drawRates(rows) {
-  const host = $('rates');
+const compact = (value) => (value === null ? '–' : value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value)));
+const duration = (seconds) => (seconds === null ? '–' : seconds < 60 ? `${seconds.toFixed(1)} s` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`);
+
+function drawTiles(rows) {
+  const host = $('tiles');
   host.replaceChildren();
-  const harnesses = [...new Set(rows.map((row) => row.harness))];
-  if (!harnesses.length) return host.append(el('p', { class: 'empty' }, 'No runs planned for this selection.'));
-  const perRow = Math.max(...harnesses.map((name) => rows.filter((row) => row.harness === name).length));
-  const band = Math.max(34, perRow * 16 + 14);
-  const left = 170, right = 24, top = 8, width = 760, plot = width - left - right;
-  const height = top + harnesses.length * band + 28;
-  const svg = el('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Pass rate by harness with 95% intervals' });
-  const x = (value) => left + value * plot;
-  for (const tick of [0, 0.25, 0.5, 0.75, 1]) {
-    svg.append(el('line', { class: tick ? 'grid' : 'axis', x1: x(tick), x2: x(tick), y1: top, y2: height - 28 }));
-    svg.append(el('text', { class: 'tick', x: x(tick), y: height - 10, 'text-anchor': 'middle' }, percent(tick)));
+  const tile = (name, value, more) => {
+    const box = el('div', { class: 'tile' });
+    box.append(el('div', { class: 'label' }, name), el('div', { class: 'value' }, value));
+    if (more) box.append(el('div', { class: 'more' }, more));
+    host.append(box);
+  };
+  const harnesses = new Set(rows.map((row) => row.harness)).size;
+  tile('Runs recorded', `${DATA.recorded.toLocaleString('en-US')}`, `of ${DATA.planned.toLocaleString('en-US')} planned`);
+  tile('Harnesses', String(harnesses), `${DATA.models.length} model${DATA.models.length === 1 ? '' : 's'}`);
+  tile('Tasks', String(DATA.tasks.length), `${DATA.repetitions} repeat${DATA.repetitions === 1 ? '' : 's'} each`);
+  const model = $('model').value;
+  for (const test of DATA.overall.filter((item) => item.mode === $('mode').value && (!model || item.model === model))) {
+    tile(`Do harnesses differ? ${DATA.models.length > 1 ? test.model : ''}`.trim(),
+      test.p_value < 0.001 ? 'p < 0.001' : `p = ${test.p_value.toFixed(3)}`,
+      `${Math.round(test.spread * 100)} points between best and worst`);
   }
-  harnesses.forEach((name, index) => {
-    const group = rows.filter((row) => row.harness === name);
-    const middle = top + index * band + band / 2;
-    svg.append(el('text', { class: 'name', x: left - 12, y: middle + 4, 'text-anchor': 'end' }, label(group[0])));
-    group.forEach((row, position) => {
-      const y = middle + (position - (group.length - 1) / 2) * 16;
-      if (!row.attempted) {
-        svg.append(el('text', { x: left + 8, y: y + 4 }, group.length > 1 ? `${row.model}: no attempted runs` : 'no attempted runs'));
-        return;
-      }
-      svg.append(el('line', { class: 'interval', stroke: colorOf(row.model), x1: x(row.interval[0]), x2: x(row.interval[1]), y1: y, y2: y }));
-      const hit = el('circle', { class: 'hit', cx: x(row.pass_rate), cy: y, r: 12, tabindex: 0 });
-      attachTip(hit, `${percent(row.pass_rate)} · ${label(row)}`, [row.model, ...rateLines(row)]);
-      svg.append(hit, el('circle', { class: 'dot', cx: x(row.pass_rate), cy: y, r: 5, fill: colorOf(row.model) }));
-    });
-  });
-  host.append(svg, legend(rows));
+}
+
+function drawBoard(rows) {
+  const host = $('board');
+  host.replaceChildren();
+  if (!rows.length) return host.append(el('p', { class: 'empty' }, 'No runs planned for this selection.'));
+  const sorted = [...rows].sort((a, b) => (b.pass_rate ?? -1) - (a.pass_rate ?? -1)
+    || (a.list_price_usd_per_pass ?? a.cost_usd_per_pass ?? Infinity) - (b.list_price_usd_per_pass ?? b.cost_usd_per_pass ?? Infinity));
+  const table = el('table', { class: 'board' });
+  const head = el('tr');
+  for (const [name, numeric] of [['Harness', 0], ['Pass rate', 0], ['Cost per pass', 1], ['Median time', 1], ['Median tokens', 1], ['Change size', 1]]) {
+    head.append(el('th', numeric ? { class: 'num' } : {}, name));
+  }
+  table.append(head);
+  for (const row of sorted) {
+    const line = el('tr');
+    const who = el('td', { class: 'who' });
+    const model = el('span');
+    model.append(el('i', { style: `background:${colorOf(row.model)}` }), document.createTextNode(row.model));
+    who.append(el('b', {}, label(row)), model);
+    const rate = el('td');
+    const inner = el('div', { class: 'rate' });
+    if (row.attempted) {
+      const bar = el('div', { class: 'bar', tabindex: 0 });
+      bar.append(el('b', { style: `width:${row.pass_rate * 100}%;background:${colorOf(row.model)}` }),
+        el('u', { style: `left:${row.interval[0] * 100}%;width:${(row.interval[1] - row.interval[0]) * 100}%` }));
+      attachTip(bar, `${percent(row.pass_rate)} · ${label(row)}`, [row.model, ...rateLines(row)]);
+      const text = el('div', { style: 'flex:1' });
+      text.append(bar, el('small', {}, `${row.passed} of ${row.attempted} passed · ${percent(row.interval[0])}–${percent(row.interval[1])}`
+        + (row.blocked ? ` · ${row.blocked} blocked` : '') + (row.pending ? ` · ${row.pending} pending` : '')));
+      inner.append(el('strong', {}, percent(row.pass_rate)), text);
+    } else {
+      inner.append(el('strong', {}, '–'), el('small', {}, row.blocked ? `${row.blocked} blocked, none attempted` : 'no attempted runs yet'));
+    }
+    rate.append(inner);
+    const reported = row.cost_usd_per_pass, listed = row.list_price_usd_per_pass;
+    const cost = el('td', { class: 'num' }, money(reported ?? listed));
+    if ((reported ?? listed) !== null) cost.append(el('small', {}, reported !== null ? 'reported' : 'list-price estimate'));
+    const tokens = el('td', { class: 'num' }, row.input_tokens === null && row.output_tokens === null ? '–' : `${compact(row.input_tokens)} in`);
+    if (row.output_tokens !== null) tokens.append(el('small', {}, `${compact(row.output_tokens)} out` + (row.cached_input_tokens ? ` · ${compact(row.cached_input_tokens)} cached` : '')));
+    line.append(who, rate, cost, el('td', { class: 'num' }, duration(row.seconds)), tokens,
+      el('td', { class: 'num' }, row.change_ratio === null ? '–' : `${row.change_ratio.toFixed(1)}×`));
+    table.append(line);
+  }
+  host.append(table, legend(rows));
 }
 
 function niceStep(maximum, count) {
@@ -259,7 +339,7 @@ function drawScatter(rows) {
   if (!points.length) {
     return host.append(el('p', { class: 'empty' }, 'No cost is known yet. Add a price table to the suite, or run a harness that reports its cost.'));
   }
-  const left = 52, right = 24, top = 20, bottom = 44, width = 760, height = 360;
+  const left = 52, right = 24, top = 20, bottom = 44, width = 980, height = 380;
   const svg = el('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Cost per run against pass rate' });
   const step = niceStep(Math.max(...points.map((row) => row[field])) || 1, 4);
   const maximum = step * Math.ceil((Math.max(...points.map((row) => row[field])) || step) / step);
@@ -373,6 +453,14 @@ function drawTable(rows) {
   host.append(table);
 }
 
+function verdict(clear) {
+  const cell = el('td');
+  const pill = el('span', { class: clear ? 'pill clear' : 'pill' });
+  pill.append(el('i'), document.createTextNode(clear ? 'Clear' : 'Within noise'));
+  cell.append(pill);
+  return cell;
+}
+
 function drawPairs() {
   const host = $('pairs');
   host.replaceChildren();
@@ -396,7 +484,7 @@ function drawPairs() {
     line.append(el('td', {}, names[item.better]), el('td', {}, names[item.worse]), el('td', {}, item.model),
       el('td', { class: 'num' }, `${points(item.difference)} pts`),
       el('td', { class: 'num' }, `${points(item.low)} to ${points(item.high)} pts`),
-      el('td', {}, item.clear ? '● Clear' : '○ Within noise'));
+      verdict(item.clear));
     table.append(line);
   }
   host.append(table);
@@ -455,6 +543,7 @@ function drawGallery() {
   host.replaceChildren();
   const shots = DATA.runs.filter((run) => inSelection(run) && run.thumb);
   $('gallery-section').hidden = !shots.length;
+  $('jump-gallery').hidden = !shots.length;
   for (const task of DATA.tasks) {
     const mine = shots.filter((run) => run.task === task);
     if (!mine.length) continue;
@@ -536,14 +625,15 @@ function draw() {
   drawGallery();
   drawRuns();
   drawPairs();
-  drawRates(rows);
+  drawTiles(rows);
+  drawBoard(rows);
   drawScatter(rows);
   drawTasks(rows);
   drawTable(rows);
 }
 
 $('title').textContent = DATA.suite_id;
-$('status').textContent = `${DATA.recorded} of ${DATA.planned} runs recorded · ${DATA.repetitions} repeat${DATA.repetitions > 1 ? 's' : ''} per task and configuration · plan ${DATA.plan_id.slice(0, 12)}`;
+$('status').textContent = `Same tasks, same models, different harnesses · plan ${DATA.plan_id.slice(0, 12)}`;
 $('mock').hidden = !DATA.has_mock;
 for (const id of ['run-task', 'run-harness', 'run-status']) $(id).addEventListener('change', drawRuns);
 $('mode').addEventListener('change', draw);

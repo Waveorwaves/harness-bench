@@ -1,0 +1,23 @@
+# DeepSeek Harness 0.2.0-rc.2 ships a Codex model list that stops at gpt-6-sol. This adds gpt-6.1-sol to the
+# Codex route, the way its notes describe for "a model newer than the installed catalog". The limits and effort
+# names are the ones its own list gives gpt-6-sol. Passed to dsh with --patch; it holds no credentials.
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      openai-codex:
+        displayName: OpenAI Codex
+        models:
+          - id: gpt-6.1-sol
+            name: GPT-6.1 Sol
+            contextWindow: 272000
+            maxTokens: 128000
+            input: [text, image]
+            reasoningEfforts:
+              off: none
+              minimal: low
+              low: low
+              medium: medium
+              high: high
+              xhigh: xhigh
+              max: max

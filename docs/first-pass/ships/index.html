@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harness Bench: first pass</title>
+<meta name="description" content="Ten coding harnesses, the same models, nine tasks, one run each: pass rates, time, tokens, cost and blind judging of a 3D task, with limits.">
+<meta property="og:title" content="Harness Bench: ten coding harnesses, the same model, nine tasks">
+<meta property="og:description" content="Pass rates, time, tokens, cost and blind judging of a 3D task. One run each, with the limits listed.">
+<meta property="og:image" content="../img/card.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root { color-scheme: light dark; --page: #ffffff; --surface: #fafafa; --ink: #111111; --ink-2: #666666; --line: #e4e4e4; --a: #1a1a1a; --b: #d83f6a; --n: #c9c9c9; --accent: #c02a57; --f-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif; --f-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --f-ui: "IBM Plex Mono", ui-monospace, Menlo, monospace; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+@media (prefers-color-scheme: dark) { :root { --page: #111111; --surface: #1a1a1a; --ink: #f2f2f2; --ink-2: #b0b0b0; --line: #333333; --a: #ededed; --b: #ec6a8f; --n: #4d4d4d; --accent: #f58fae; } }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+main { max-width: 980px; margin: 0 auto; padding: 56px 24px 110px; }
+h1, h2, h3 { font-family: var(--f-display); }
+h1 { font-size: clamp(34px, 5.4vw, 54px); line-height: 1.06; margin: 14px 0 16px; max-width: 18ch; text-wrap: balance; }
+h1 + p { font-family: var(--f-ui); color: var(--ink-2); font-size: 14px; margin: 0; max-width: none; }
+h2 { font-size: 30px; line-height: 1.15; margin: 84px 0 14px; scroll-margin-top: 60px; }
+h2::before { content: ""; display: block; width: 28px; height: 3px; background: var(--b); margin-bottom: 18px; }
+h3 { font-size: 21px; line-height: 1.25; margin: 44px 0 8px; scroll-margin-top: 60px; }
+h4 { font-family: var(--f-ui); font-size: 12px; font-weight: 600; margin: 30px 0 4px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .09em; }
+p, li { max-width: 66ch; }
+ul { padding-left: 20px; }
+li { margin: 7px 0; }
+li::marker { color: var(--b); }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+strong { font-weight: 600; }
+code { font-family: var(--f-mono); font-size: 0.82em; background: color-mix(in srgb, var(--ink) 6%, transparent); border-radius: 3px; padding: 1px 4px; }
+pre { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); padding: 14px 0; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+pre code { background: none; padding: 0; font-size: 13px; }
+.eyebrow { font-family: var(--f-ui); color: var(--accent); font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+.note { border-left: 2px solid var(--b); padding: 1px 0 1px 18px; margin: 26px 0 0; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); margin: 34px 0 30px; border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--line); }
+.stats div { padding: 18px 18px 16px; }
+.stats div:first-child { padding-left: 0; }
+.stats div + div { border-left: 1px solid var(--line); }
+.stats strong { display: block; font-size: 40px; line-height: 1; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums lining-nums; }
+.stats span { display: block; font-family: var(--f-ui); color: var(--ink-2); font-size: 13px; line-height: 1.4; margin-top: 10px; }
+nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 22px; overflow-x: auto; margin: 34px -24px 0; padding: 12px 24px; background: color-mix(in srgb, var(--page) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav a { font-family: var(--f-ui); white-space: nowrap; font-size: 13.5px; color: var(--ink-2); text-decoration: none; }
+nav a:hover { color: var(--accent); }
+.scroll { overflow-x: auto; margin: 18px 0 26px; }
+table { border-collapse: collapse; width: 100%; font-family: var(--f-ui); font-size: 14px; line-height: 1.45; }
+th, td { text-align: left; padding: 9px 20px 9px 0; vertical-align: top; overflow-wrap: anywhere; }
+th { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); white-space: nowrap; border-bottom: 1.5px solid var(--ink); }
+td { border-bottom: 1px solid var(--line); }
+td:first-child { font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+th:last-child, td:last-child { padding-right: 0; }
+figure { margin: 26px 0; max-width: 860px; }
+figure img { display: block; width: 100%; height: auto; }
+sup.fn { font-size: 0.72em; line-height: 0; margin-left: 2px; }
+sup.fn a { font-family: var(--f-mono); text-decoration: none; padding: 0 1px; }
+ol.notes { font-family: var(--f-body); font-size: 13.5px; line-height: 1.5; color: var(--ink-2); margin: -10px 0 30px; padding-left: 20px; }
+ol.notes li { max-width: 78ch; margin: 5px 0; scroll-margin-top: 70px; }
+ol.notes li::marker { font-family: var(--f-mono); color: var(--accent); }
+ol.notes li:target { color: var(--ink); }
+details { margin: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+summary { cursor: pointer; padding: 12px 0; font-family: var(--f-ui); font-size: 14px; font-weight: 600; color: var(--accent); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 22px 16px; margin: 18px 0 26px; }
+.gallery a { display: block; text-decoration: none; color: var(--ink); font-family: var(--f-ui); font-size: 13px; line-height: 1.4; }
+.gallery img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #000; border-radius: 3px; transition: opacity .15s ease; }
+.gallery a:hover img { opacity: .86; }
+.gallery span { display: block; padding-top: 8px; }
+footer { font-family: var(--f-ui); color: var(--ink-2); font-size: 13px; margin-top: 90px; border-top: 1.5px solid var(--ink); padding-top: 16px; }
+@media (max-width: 680px) {
+  main { padding: 32px 18px 80px; } h2 { margin-top: 60px; font-size: 26px; } nav { margin: 28px -18px 0; padding: 12px 18px; }
+  .stats { grid-template-columns: 1fr 1fr; } .stats div { padding: 16px 14px 14px 0; } .stats div + div { border-left: 0; }
+  .stats div:nth-child(even) { border-left: 1px solid var(--line); padding-left: 16px; } .stats div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  td:first-child { white-space: normal; } .stats strong { font-size: 28px; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .gallery img { transition: none; } }
+body { font-size: 16px; line-height: 1.62; } h1 { font-weight: 600; letter-spacing: -0.035em; } h2, h3 { font-weight: 600; letter-spacing: -0.02em; } td { font-family: var(--f-body); } td.n { font-family: var(--f-mono); font-size: 13px; } .stats strong { font-family: var(--f-mono); font-weight: 500; } th, nav a, .stats span, .eyebrow { font-size: 12px; } th { letter-spacing: .03em; font-weight: 500; } th, td { padding-right: 16px; }
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">Harness Bench · first pass</p>
+<h1 id="every-pirate-ship">Every pirate ship</h1>
+<p>One page per harness and model, as each run left it. Drag to move the camera. <a href="../index.html">Back to the report</a>.</p>
+<h2 id="gpt-6-1-sol-medium-effort">gpt-6.1-sol, medium effort</h2>
+<div class="gallery"><a href="gpt-6-1-sol.codex-app.html"><img src="thumbs/gpt-6-1-sol.codex-app.jpg" alt="Codex app · 6.7 min" loading="lazy"><span>Codex app · 6.7 min</span></a><a href="gpt-6-1-sol.pi.html"><img src="thumbs/gpt-6-1-sol.pi.jpg" alt="Pi · 10.8 min" loading="lazy"><span>Pi · 10.8 min</span></a><a href="gpt-6-1-sol.deepseek-harness.html"><img src="thumbs/gpt-6-1-sol.deepseek-harness.jpg" alt="DeepSeek Harness · 11.3 min" loading="lazy"><span>DeepSeek Harness · 11.3 min</span></a><a href="gpt-6-1-sol.devin.html"><img src="thumbs/gpt-6-1-sol.devin.jpg" alt="Devin · 10.4 min" loading="lazy"><span>Devin · 10.4 min</span></a><a href="gpt-6-1-sol.codex.html"><img src="thumbs/gpt-6-1-sol.codex.jpg" alt="Codex CLI · 13.8 min" loading="lazy"><span>Codex CLI · 13.8 min</span></a><a href="gpt-6-1-sol.capy.html"><img src="thumbs/gpt-6-1-sol.capy.jpg" alt="Capy · 9.1 min" loading="lazy"><span>Capy · 9.1 min</span></a><a href="gpt-6-1-sol.opencode.html"><img src="thumbs/gpt-6-1-sol.opencode.jpg" alt="OpenCode · 12.5 min" loading="lazy"><span>OpenCode · 12.5 min</span></a><a href="gpt-6-1-sol.droid.html"><img src="thumbs/gpt-6-1-sol.droid.jpg" alt="Droid · 18.8 min" loading="lazy"><span>Droid · 18.8 min</span></a><a href="gpt-6-1-sol.hermes.html"><img src="thumbs/gpt-6-1-sol.hermes.jpg" alt="Hermes Agent · 12.0 min" loading="lazy"><span>Hermes Agent · 12.0 min</span></a><a href="gpt-6-1-sol.omp.html"><img src="thumbs/gpt-6-1-sol.omp.jpg" alt="oh-my-pi · 11.8 min" loading="lazy"><span>oh-my-pi · 11.8 min</span></a></div>
+<h2 id="deepseek-s-api-high-effort">DeepSeek's API, high effort</h2>
+<div class="gallery"><a href="deepseek-flash-high.opencode.html"><img src="thumbs/deepseek-flash-high.opencode.jpg" alt="OpenCode · 15.5 min" loading="lazy"><span>OpenCode · 15.5 min</span></a><a href="deepseek-flash-high.pi.html"><img src="thumbs/deepseek-flash-high.pi.jpg" alt="Pi · 27.4 min" loading="lazy"><span>Pi · 27.4 min</span></a><a href="deepseek-flash-high.hermes.html"><img src="thumbs/deepseek-flash-high.hermes.jpg" alt="Hermes Agent · 25.8 min" loading="lazy"><span>Hermes Agent · 25.8 min</span></a><a href="deepseek-flash-high.omp.html"><img src="thumbs/deepseek-flash-high.omp.jpg" alt="oh-my-pi · 50.9 min" loading="lazy"><span>oh-my-pi · 50.9 min</span></a><a href="deepseek-flash-high.codex.html"><img src="thumbs/deepseek-flash-high.codex.jpg" alt="Codex CLI · 55.3 min" loading="lazy"><span>Codex CLI · 55.3 min</span></a><a href="deepseek-flash-high.droid.html"><img src="thumbs/deepseek-flash-high.droid.jpg" alt="Droid · stopped at 60 min" loading="lazy"><span>Droid · stopped at 60 min</span></a><a href="deepseek-flash-high.deepseek-harness.html"><img src="thumbs/deepseek-flash-high.deepseek-harness.jpg" alt="DeepSeek Harness · stopped at 60 min" loading="lazy"><span>DeepSeek Harness · stopped at 60 min</span></a></div>
+<h2 id="deepseek-v4-1-flash-as-hosted-by-the-harness-s-plan-high-effort">DeepSeek V4.1 Flash as hosted by the harness's plan, high effort</h2>
+<div class="gallery"><a href="deepseek-v4-1-flash-plan.devin.html"><img src="thumbs/deepseek-v4-1-flash-plan.devin.jpg" alt="Devin · 56.0 min" loading="lazy"><span>Devin · 56.0 min</span></a><a href="deepseek-v4-1-flash-plan.droid.html"><img src="thumbs/deepseek-v4-1-flash-plan.droid.jpg" alt="Droid · stopped at 60 min" loading="lazy"><span>Droid · stopped at 60 min</span></a></div>
+<h2 id="deepseek-s-api-medium-asked-for-superseded">DeepSeek's API, "medium" asked for (superseded)</h2>
+<div class="gallery"><a href="deepseek-flash.opencode.html"><img src="thumbs/deepseek-flash.opencode.jpg" alt="OpenCode · 11.2 min" loading="lazy"><span>OpenCode · 11.2 min</span></a><a href="deepseek-flash.pi.html"><img src="thumbs/deepseek-flash.pi.jpg" alt="Pi · stopped at 15 min" loading="lazy"><span>Pi · stopped at 15 min</span></a><a href="deepseek-flash.omp.html"><img src="thumbs/deepseek-flash.omp.jpg" alt="oh-my-pi · stopped at 15 min" loading="lazy"><span>oh-my-pi · stopped at 15 min</span></a><a href="deepseek-flash.hermes.html"><img src="thumbs/deepseek-flash.hermes.jpg" alt="Hermes Agent · stopped at 15 min" loading="lazy"><span>Hermes Agent · stopped at 15 min</span></a></div>
+<footer>Built from the recorded runs by <code>scripts/publish_first_pass.py</code>. <a href="https://github.com/Waveorwaves/harness-bench">Source, tasks and checks</a>.</footer>
+</main>
+</body>
+</html>

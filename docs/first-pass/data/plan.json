@@ -1,0 +1,5284 @@
+{
+  "schema_version": 1,
+  "plan_id": "7d7e5a45591c4afd3233e20093330f1c830c917bd05d6c307a0b606962d0a46b",
+  "configuration": {
+    "schema_version": 2,
+    "suite_id": "pilot-v1",
+    "notes": [
+      "Probed on 2026-10-06 (suites/probe.json): each of the five command-line harnesses solved the smallest task once on each model, and its tokens were read correctly. No run of this suite's own tasks has been made yet.",
+      "DeepSeek: the key comes from DEEPSEEK_API_KEY in the project's .env file and is passed only into runs that use that model. Pi, omp, OpenCode and Hermes read that variable themselves. Codex is pointed at DeepSeek by the `-c model_providers.deepseek...` settings below, using the newer request style (`wire_api = \"responses\"`), which DeepSeek's service accepts; current Codex rejects the older `wire_api = \"chat\"`.",
+      "Codex subscription: a sign-in, not a key. `credentials` copies a login file into each run's throwaway home, where the agent can read it. For Pi, omp and OpenCode the file copied is a trimmed one made by `python3 scripts/snapshot_logins.py`, holding only the ChatGPT sign-in and none of your other ones; rerun that script after signing in again. Tokens last about ten days, so sign in within a few days of a run and nothing needs refreshing part-way through.",
+      "Signed in to ChatGPT on 2026-10-06: omp and OpenCode (tokens good until 2026-10-16), Hermes (until 2026-10-13) and Codex. All run both models.",
+      "Pi was signed in on 2026-10-06 with its newer 'Sign in with ChatGPT' option, stored as provider `openai`, so its model is `openai/gpt-6.1-sol`. That sign-in's tokens last one hour and are renewed on use, so Pi has `write_back_logins` on: a renewed login is saved back to the benchmark-only copy for the next run. Do not rerun the snapshot script for Pi mid-run (it would put the older copy back), and expect to sign in to Pi again on the Mac afterwards. If renewal fails in the probe, sign in with Pi's 'OpenAI (ChatGPT Plus/Pro)' option instead, whose tokens last about ten days, and change the model name back to `openai-codex/gpt-6.1-sol`.",
+      "Every command-line harness here can use both models. What limits a row is only whether that harness is signed in: see the next notes.",
+      "Model names: DeepSeek's own model list returned `deepseek-flash` and `deepseek-v4-pro` for this key on 2026-10-06, and Pi and OpenCode list the same, so every harness is asked for `deepseek-flash`.",
+      "Claude Code is deliberately left out of this comparison (decided 2026-10-05).",
+      "Capy is a desktop app run by hand (manual-start, manual-finish). It only works with the Codex subscription unless you pay for bring-your-own-key, so it is filed under gpt-6-1-sol only: three tasks, once each.",
+      "codex-app is Codex run by hand in the desktop app on the same three tasks, beside the automatic Codex command-line rows. The app bundles the same engine, so comparing the two shows whether command-line results carry over to the app.",
+      "price_per_mtok (US dollars per million tokens) is copied from Pi 1.0.4's built-in price list on 2026-10-06; the DeepSeek figures reproduce the cost Pi reported in the probe. Check both against the providers' price pages before publishing. For gpt-6.1-sol the higher rate above 272,000 input tokens is ignored, and on a subscription the figure is a list-price estimate, not a bill.",
+      "Codex on deepseek-flash works but is costly: in the probe it sent about 405,000 input tokens for the smallest task, roughly twenty times what Pi sent, after warning that it has no built-in settings for that model. `run --harness` and `run --model` let that cell be run separately or left out without changing the plan.",
+      "Every desktop app run by hand does all nine tasks once, like the command-line harnesses, so both kinds can be read on one page. This was widened on 2026-10-07 from three tasks per app; the 90 command-line runs already made were carried into the new plan unchanged (`carry-over`), each marked with the run it came from.",
+      "Devin runs through its command-line tool in the sandbox like the other command-line harnesses (added 2026-10-07). Its own agent cannot use the Codex subscription, so its gpt-6.1-sol runs use the same model and effort from the Devin plan (`gpt-6-1-sol-medium`): the route to the model differs from the other harnesses', which may affect speed. Devin's price list for that model matches the one used here. The Devin desktop app's 'Devin Local' is this same engine.",
+      "deepseek-flash-high is DeepSeek's own API again, at an effort DeepSeek really has. The earlier deepseek-flash runs asked for 'medium', which DeepSeek does not offer, so each harness translated it its own way (thinking on at the default level in Pi, OpenCode and Hermes; no reasoning tokens reported by omp; unknown for Codex). They are kept, as run. Compare harnesses on DeepSeek using the high rows.",
+      "deepseek-v4-1-flash-plan is 'DeepSeek V4.1 Flash' as each plan hosts it, at high: Devin's plan and Droid's plan. It is a separate model group because the host differs, and possibly the model version: DeepSeek's own API calls its model `deepseek-flash`. Its cost column uses DeepSeek's own list prices so that token use can be compared; the plans themselves charge differently (Devin lists $0.22 input, $0.01 cached, $0.66 output per million).",
+      "Droid runs through its command-line tool in the sandbox (added 2026-10-08), signed in with FACTORY_API_KEY from .env. Its gpt-6.1-sol runs use the Droid plan's own route, like Devin's. For deepseek-flash-high it uses a custom model that calls DeepSeek's API with DEEPSEEK_API_KEY (docker/droid-settings.json), so that row differs from the Droid plan row only in the route.",
+      "The time limit is a safety stop of 60 minutes, not part of the test (raised from 15 minutes on 2026-10-08, because time is itself one of the things measured and several pirate-ship runs were being cut off). Runs that ended on their own under the 15-minute limit are unchanged by this and were carried over; each carries `made_under_timeout_seconds`. Runs that were cut off at 15 minutes are kept and marked the same way; where one was made again without the cut-off, the new record notes the earlier attempt."
+    ],
+    "comparison": "controlled",
+    "seed": 20261005,
+    "repetitions": 3,
+    "budget": {
+      "timeout_seconds": 3600,
+      "max_retries": 0
+    },
+    "models": [
+      {
+        "id": "gpt-6-1-sol",
+        "name": "gpt-6.1-sol",
+        "reasoning_effort": "medium",
+        "billing": "subscription",
+        "harness_names": {
+          "pi": "openai/gpt-6.1-sol",
+          "omp": "openai-codex/gpt-6.1-sol",
+          "opencode": "openai/gpt-6.1-sol",
+          "devin": "gpt-6-1-sol-medium",
+          "droid": "gpt-6.1-sol",
+          "deepseek-harness": "openai-codex/gpt-6.1-sol"
+        },
+        "price_per_mtok": {
+          "input": 2.0,
+          "cached_input": 0.1,
+          "cache_write": 2.5,
+          "output": 10.0
+        },
+        "harness_args": {
+          "hermes": [
+            "--provider",
+            "openai-codex"
+          ],
+          "deepseek-harness": [
+            "--patch",
+            "/hb/home/.dsh/overlays/codex-models.yml"
+          ]
+        }
+      },
+      {
+        "id": "deepseek-flash",
+        "name": "deepseek-flash",
+        "reasoning_effort": "medium",
+        "billing": "api",
+        "harness_names": {
+          "pi": "deepseek/deepseek-flash",
+          "omp": "deepseek/deepseek-flash",
+          "opencode": "deepseek/deepseek-flash"
+        },
+        "price_per_mtok": {
+          "input": 0.3,
+          "cached_input": 0.006,
+          "cache_write": 0.0,
+          "output": 1.2
+        },
+        "harness_args": {
+          "hermes": [
+            "--provider",
+            "deepseek"
+          ],
+          "codex": [
+            "-c",
+            "model_provider=\"deepseek\"",
+            "-c",
+            "model_providers.deepseek.name=\"DeepSeek\"",
+            "-c",
+            "model_providers.deepseek.base_url=\"https://api.deepseek.com/v1\"",
+            "-c",
+            "model_providers.deepseek.env_key=\"DEEPSEEK_API_KEY\"",
+            "-c",
+            "model_providers.deepseek.wire_api=\"responses\""
+          ]
+        },
+        "harness_env": {
+          "pi": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "omp": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "opencode": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "hermes": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "codex": [
+            "DEEPSEEK_API_KEY"
+          ]
+        }
+      },
+      {
+        "id": "deepseek-flash-high",
+        "name": "deepseek-flash",
+        "reasoning_effort": "high",
+        "billing": "api",
+        "harness_names": {
+          "pi": "deepseek/deepseek-flash",
+          "omp": "deepseek/deepseek-flash",
+          "opencode": "deepseek/deepseek-flash",
+          "droid": "custom:deepseek-flash-0",
+          "deepseek-harness": "deepseek-official/deepseek-flash"
+        },
+        "harness_args": {
+          "hermes": [
+            "--provider",
+            "deepseek"
+          ],
+          "codex": [
+            "-c",
+            "model_provider=\"deepseek\"",
+            "-c",
+            "model_providers.deepseek.name=\"DeepSeek\"",
+            "-c",
+            "model_providers.deepseek.base_url=\"https://api.deepseek.com/v1\"",
+            "-c",
+            "model_providers.deepseek.env_key=\"DEEPSEEK_API_KEY\"",
+            "-c",
+            "model_providers.deepseek.wire_api=\"responses\""
+          ]
+        },
+        "harness_env": {
+          "pi": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "omp": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "opencode": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "hermes": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "codex": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "droid": [
+            "DEEPSEEK_API_KEY"
+          ],
+          "deepseek-harness": [
+            "DEEPSEEK_API_KEY"
+          ]
+        },
+        "price_per_mtok": {
+          "input": 0.3,
+          "cached_input": 0.006,
+          "cache_write": 0.0,
+          "output": 1.2
+        }
+      },
+      {
+        "id": "deepseek-v4-1-flash-plan",
+        "name": "deepseek-v4.1-flash",
+        "reasoning_effort": "high",
+        "billing": "subscription",
+        "harness_names": {
+          "devin": "deepseek-v4-1-flash-high",
+          "droid": "deepseek-v4.1-flash"
+        },
+        "price_per_mtok": {
+          "input": 0.3,
+          "cached_input": 0.006,
+          "cache_write": 0.0,
+          "output": 1.2
+        }
+      }
+    ],
+    "modes": [
+      {
+        "id": "single",
+        "prompt_suffix": ""
+      }
+    ],
+    "tasks": [
+      {
+        "id": "md-preview",
+        "spec": "tasks/md-preview",
+        "seed_revision": "e250c31a91b65553",
+        "evaluator_revision": "1d6622d973e3dbb8"
+      },
+      {
+        "id": "kanban-undo",
+        "spec": "tasks/kanban-undo",
+        "seed_revision": "c00bb230dc98493b",
+        "evaluator_revision": "3d0dbdd31801d4e4"
+      },
+      {
+        "id": "expenses-csv",
+        "spec": "tasks/expenses-csv",
+        "seed_revision": "76d412eee9422780",
+        "evaluator_revision": "e94d4586a8839830"
+      },
+      {
+        "id": "checkout-refactor",
+        "spec": "tasks/checkout-refactor",
+        "seed_revision": "787c5d9217b89a24",
+        "evaluator_revision": "225a851c1d7e7620"
+      },
+      {
+        "id": "bookmarks-tags",
+        "spec": "tasks/bookmarks-tags",
+        "seed_revision": "eb4abcd7c07fa2d8",
+        "evaluator_revision": "c567e1e3748675fe"
+      },
+      {
+        "id": "todo-app",
+        "spec": "tasks/todo-app",
+        "seed_revision": "e450cc188d70bdff",
+        "evaluator_revision": "df2293a083baefeb"
+      },
+      {
+        "id": "tabs-keyboard",
+        "spec": "tasks/tabs-keyboard",
+        "seed_revision": "abf87190fd3270a3",
+        "evaluator_revision": "e348b13724c695d6"
+      },
+      {
+        "id": "log-report",
+        "spec": "tasks/log-report",
+        "seed_revision": "5fc38a9163a966c9",
+        "evaluator_revision": "1ade05020bd40aa3"
+      },
+      {
+        "id": "pirate-ship-3d",
+        "spec": "tasks/pirate-ship-3d",
+        "seed_revision": "3cecdb3049c25c76",
+        "evaluator_revision": "7cfafd2250e4b7af"
+      }
+    ],
+    "harnesses": [
+      {
+        "id": "codex",
+        "adapter": "codex",
+        "version": "codex-cli 0.160.1",
+        "credentials": [
+          "~/.codex/auth.json:.codex/auth.json"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash",
+          "deepseek-flash-high"
+        ]
+      },
+      {
+        "id": "pi",
+        "adapter": "pi",
+        "version": "1.0.4",
+        "credentials": [
+          "~/.harness-bench/logins/pi/auth.json:.pi/agent/auth.json"
+        ],
+        "write_back_logins": true,
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash",
+          "deepseek-flash-high"
+        ]
+      },
+      {
+        "id": "omp",
+        "adapter": "omp",
+        "version": "omp/18.6.1",
+        "credentials": [
+          "~/.harness-bench/logins/omp/agent.db:.omp/agent/agent.db"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash",
+          "deepseek-flash-high"
+        ]
+      },
+      {
+        "id": "opencode",
+        "adapter": "opencode",
+        "version": "1.18.34",
+        "credentials": [
+          "~/.harness-bench/logins/opencode/auth.json:.local/share/opencode/auth.json"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash",
+          "deepseek-flash-high"
+        ]
+      },
+      {
+        "id": "hermes",
+        "adapter": "hermes",
+        "version": "Hermes Agent v0.21.5+7566.g3dadeb9 (2026.9.24) \u00b7 upstream 3dadeb92",
+        "credentials": [
+          "~/.harness-bench/logins/hermes/auth.json:.hermes/auth.json"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash",
+          "deepseek-flash-high"
+        ]
+      },
+      {
+        "id": "devin",
+        "adapter": "devin",
+        "version": "devin 3000.11.3 (9c803229faa4)",
+        "credentials": [
+          "~/.local/share/devin/credentials.toml:.local/share/devin/credentials.toml"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-v4-1-flash-plan"
+        ]
+      },
+      {
+        "id": "droid",
+        "adapter": "droid",
+        "version": "0.235.0",
+        "env": [
+          "FACTORY_API_KEY"
+        ],
+        "credentials": [
+          "docker/droid-settings.json:.factory/settings.json"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash-high",
+          "deepseek-v4-1-flash-plan"
+        ]
+      },
+      {
+        "id": "codex-app",
+        "adapter": "manual",
+        "version": "ChatGPT desktop 26.928.20755 (codex-cli 0.159.0)",
+        "models": [
+          "gpt-6-1-sol"
+        ],
+        "repetitions": 1
+      },
+      {
+        "id": "capy",
+        "adapter": "manual",
+        "version": "Capy desktop 0.4.2",
+        "models": [
+          "gpt-6-1-sol"
+        ],
+        "repetitions": 1
+      },
+      {
+        "id": "deepseek-harness",
+        "adapter": "dsh",
+        "version": "0.2.0-rc.2",
+        "credentials": [
+          "~/.harness-bench/logins/dsh/credentials.yaml:.dsh/.credentials.yaml",
+          "docker/dsh-codex-models.yml:.dsh/overlays/codex-models.yml"
+        ],
+        "models": [
+          "gpt-6-1-sol",
+          "deepseek-flash-high"
+        ]
+      }
+    ]
+  },
+  "ready": true,
+  "not_ready_reasons": [],
+  "runs": [
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:gpt-6-1-sol:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:gpt-6-1-sol:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:gpt-6-1-sol:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash-high:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash-high:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash-high:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash-high:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash-high:single:2",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash-high:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:gpt-6-1-sol:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash-high:single:2",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:gpt-6-1-sol:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash:single:3",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash:single:3",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash:single:3",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash:single:3",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash:single:3",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:capy:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:gpt-6-1-sol:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash-high:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:gpt-6-1-sol:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash-high:single:3",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:capy:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:gpt-6-1-sol:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash-high:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:gpt-6-1-sol:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash:single:2",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash:single:2",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash:single:2",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash:single:2",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash:single:2",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash-high:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash:single:3",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash:single:3",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash:single:3",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash:single:3",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash:single:3",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:gpt-6-1-sol:single:2",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:capy:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:gpt-6-1-sol:single:1",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-flash-high:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:capy:gpt-6-1-sol:single:1",
+      "task_id": "log-report",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-flash-high:single:2",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash-high:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:gpt-6-1-sol:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash-high:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:gpt-6-1-sol:single:3",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-flash-high:single:1",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash-high:single:3",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash:single:3",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash:single:3",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash:single:3",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash:single:3",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash:single:3",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash:single:1",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash:single:1",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash:single:1",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash:single:1",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash:single:1",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:capy:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:gpt-6-1-sol:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash:single:2",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash:single:2",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash:single:2",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash:single:2",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash:single:2",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "tabs-keyboard",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:gpt-6-1-sol:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash-high:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:capy:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:gpt-6-1-sol:single:1",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:gpt-6-1-sol:single:3",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash:single:1",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash:single:1",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash:single:1",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash:single:1",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash:single:1",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash:single:1",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash:single:1",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash:single:1",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash:single:1",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash:single:1",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:deepseek-flash:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:deepseek-flash:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:deepseek-flash:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:deepseek-flash:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:deepseek-flash:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash-high:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash:single:1",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-flash-high:single:1",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:gpt-6-1-sol:single:2",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash:single:2",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash:single:2",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash:single:2",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash:single:2",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash:single:2",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash-high:single:3",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:droid:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:codex:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:hermes:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:opencode:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:omp:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:pirate-ship-3d:pi:deepseek-flash-high:single:2",
+      "task_id": "pirate-ship-3d",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:gpt-6-1-sol:single:2",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:hermes:deepseek-flash:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:codex:deepseek-flash:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:pi:deepseek-flash:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:omp:deepseek-flash:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:opencode:deepseek-flash:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:devin:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:capy:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:codex:deepseek-flash:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:opencode:deepseek-flash:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:pi:deepseek-flash:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:hermes:deepseek-flash:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:omp:deepseek-flash:single:1",
+      "task_id": "tabs-keyboard",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash:single:2",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:tabs-keyboard:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "tabs-keyboard",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:droid:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash-high:single:3",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "log-report",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash-high:single:3",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:capy:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:omp:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:droid:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:pi:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:codex:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:hermes:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:log-report:opencode:deepseek-flash-high:single:2",
+      "task_id": "log-report",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:gpt-6-1-sol:single:3",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:devin:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:omp:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "omp",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:droid:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:codex:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "codex",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:opencode:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "opencode",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:pi:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "pi",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:deepseek-harness:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "deepseek-harness",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:md-preview:hermes:gpt-6-1-sol:single:3",
+      "task_id": "md-preview",
+      "harness_id": "hermes",
+      "repetition": 3,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:pi:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:omp:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:opencode:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:deepseek-harness:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:codex:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:hermes:deepseek-flash-high:single:1",
+      "task_id": "todo-app",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-v4-1-flash-plan:single:2",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex-app:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "codex-app",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:devin:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:capy:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "capy",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:gpt-6-1-sol:single:1",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:deepseek-harness:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:hermes:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:pi:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:droid:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:omp:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:codex:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:kanban-undo:opencode:deepseek-flash-high:single:2",
+      "task_id": "kanban-undo",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "deepseek-flash-high",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:pi:deepseek-flash:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "pi",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:opencode:deepseek-flash:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "opencode",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:codex:deepseek-flash:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "codex",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:hermes:deepseek-flash:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "hermes",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:bookmarks-tags:omp:deepseek-flash:single:1",
+      "task_id": "bookmarks-tags",
+      "harness_id": "omp",
+      "repetition": 1,
+      "model_id": "deepseek-flash",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:omp:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "omp",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:devin:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "devin",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:opencode:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "opencode",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:droid:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "droid",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:deepseek-harness:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "deepseek-harness",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:pi:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "pi",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:codex:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "codex",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:checkout-refactor:hermes:gpt-6-1-sol:single:2",
+      "task_id": "checkout-refactor",
+      "harness_id": "hermes",
+      "repetition": 2,
+      "model_id": "gpt-6-1-sol",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:devin:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "todo-app",
+      "harness_id": "devin",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:todo-app:droid:deepseek-v4-1-flash-plan:single:1",
+      "task_id": "todo-app",
+      "harness_id": "droid",
+      "repetition": 1,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:devin:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "devin",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    },
+    {
+      "run_id": "7d7e5a45591c4afd:expenses-csv:droid:deepseek-v4-1-flash-plan:single:3",
+      "task_id": "expenses-csv",
+      "harness_id": "droid",
+      "repetition": 3,
+      "model_id": "deepseek-v4-1-flash-plan",
+      "mode_id": "single"
+    }
+  ]
+}

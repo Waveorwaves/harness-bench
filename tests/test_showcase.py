@@ -1,10 +1,13 @@
 """Capture analysis and blind judging, on synthetic images and a scripted judge."""
 
+import io
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
 import sys
+import tarfile
 import tempfile
 import unittest
 import zlib
@@ -180,6 +183,33 @@ class JudgingTests(unittest.TestCase):
         self.assertEqual({name: sides.count(name) for name in set(sides)},
                          {"mock-polished": 4, "mock-basic": 4, "mock-faulty": 4})
         self.assertTrue(all((folder / "media" / pair["left"] / "still.png").is_file() for pair in key["pairs"]))
+        self.assertFalse(any(attempt["live"] for attempt in key["attempts"].values()))   # no run kept its files here
+
+    def test_prepare_unpacks_the_page_for_live_viewing(self):
+        # One run kept its files: its page is unpacked beside its stills, plain files only, nothing above the folder.
+        base = self.root / "runs" / self.plan["plan_id"][:16]
+        kept = self.plan["runs"][0]
+        work = self.root / "made" / "workspace"
+        (work / "assets").mkdir(parents=True)
+        (work / "node_modules/big").mkdir(parents=True)
+        (work / "index.html").write_text("<canvas></canvas>")
+        (work / "assets/sea.js").write_text("// sea")
+        (work / "node_modules/big/index.js").write_text("// not needed to look at the page")
+        os.symlink("/etc/hosts", work / "link.html")
+        with tarfile.open(runner.run_directory(base, kept) / "workspace.tar.gz", "w:gz") as tar:
+            tar.add(work, arcname="workspace")
+            escape = tarfile.TarInfo("workspace/../../outside.html")
+            tar.addfile(escape, io.BytesIO(b""))
+        folder = judging.prepare(self.plan, self.root, "sunset-sail")
+        key = judging.read_key(folder)
+        name = next(name for name, attempt in key["attempts"].items() if attempt["run_id"] == kept["run_id"])
+        self.assertEqual([other for other, attempt in key["attempts"].items() if attempt["live"]], [name])
+        live = folder / "media" / name / "live"
+        self.assertEqual(sorted(str(path.relative_to(live)) for path in live.rglob("*") if path.is_file()), ["assets/sea.js", "index.html"])
+        self.assertFalse(list(self.root.rglob("outside.html")))
+        page = (folder / "index.html").read_text()
+        self.assertIn(f'"live": {{"{name}": "live/index.html"}}', page)
+        self.assertIn('sandbox="allow-scripts allow-same-origin allow-pointer-lock"', page)
         with self.assertRaisesRegex(ValueError, "already exists"):
             judging.prepare(self.plan, self.root, "sunset-sail")
         self.assertEqual(len(judging.read_key(judging.prepare(self.plan, self.root, "sunset-sail", per_pair=1, replace=True))["pairs"]), 3)
