@@ -1269,6 +1269,11 @@ def main():
         "**Harness Bench, first pass**", f"**Harness Bench, first pass** · [open this report as a page]({PAGES}/)", 1) + "\n")
     front_page(doc)
     (OUT / "index.html").write_text(page(to_html(doc)))
+    # The site's own front door: someone who opens the bare address is sent on to the report.
+    (ROOT / "docs" / "index.html").write_text(
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Harness Bench</title>\n"
+        "<meta http-equiv=\"refresh\" content=\"0; url=first-pass/\">\n<link rel=\"canonical\" href=\"first-pass/\">\n</head>\n"
+        "<body>\n<p>The report is at <a href=\"first-pass/\">first-pass/</a>.</p>\n</body>\n</html>\n")
     tidy = lambda r: {k: v for k, v in r.items() if k != "interval"} | {"interval": r["interval"]}
     (OUT / "data" / "summary.json").write_text(json.dumps({
         "plan_id": PLAN["plan_id"], "rows": {model: [tidy(r) for r in rows[model]] for model in rows},
