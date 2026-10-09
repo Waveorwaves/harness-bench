@@ -33,6 +33,9 @@ OUT = ROOT / "docs" / "first-pass"
 CONFIG = PLAN["configuration"]
 REPO = "https://github.com/Waveorwaves/harness-bench"
 HERE = f"{REPO}/tree/main/docs/first-pass"     # folders are linked on GitHub: a static site has no folder listings
+# Where GitHub Pages serves this folder once Pages is switched on for the repository (branch main, folder /docs).
+# On github.com an HTML file is shown as source, so links to the pages go here instead.
+PAGES = "https://waveorwaves.github.io/harness-bench/first-pass"
 
 NAMES = {"codex": "Codex CLI", "pi": "Pi", "omp": "oh-my-pi", "opencode": "OpenCode", "hermes": "Hermes Agent",
          "devin": "Devin", "droid": "Droid", "codex-app": "Codex app", "capy": "Capy", "deepseek-harness": "DeepSeek Harness"}
@@ -626,8 +629,11 @@ PAGE = """<!doctype html>
 <meta name="description" content="Ten coding harnesses, the same models, nine tasks, one run each: pass rates, time, tokens, cost and blind judging of a 3D task, with limits.">
 <meta property="og:title" content="Harness Bench: ten coding harnesses, the same model, nine tasks">
 <meta property="og:description" content="Pass rates, time, tokens, cost and blind judging of a 3D task. One run each, with the limits listed.">
-<meta property="og:image" content="img/card.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="/*PAGES*//">
+<meta property="og:image" content="/*PAGES*//img/card.png">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/*PAGES*//img/card.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?/*FONTS*/&display=swap">
@@ -736,7 +742,7 @@ def page(body, back=""):
     style = STYLES[STYLE]
     faces = f"--f-display: {style['display']}; --f-body: {style['body']}; --f-ui: {style['ui']}; --f-mono: {style['mono']};"
     variables = f":root {{ color-scheme: light dark; {block('light')} {faces} }}\n@media (prefers-color-scheme: dark) {{ :root {{ {block('dark')} }} }}"
-    return PAGE.replace("/*VARS*/", variables).replace("/*STYLE*/", style["css"]).replace("/*FONTS*/", style["fonts"]).replace("/*BODY*/", body).replace("/*REPO*/", REPO).replace("img/card.png", back + "img/card.png")
+    return PAGE.replace("/*VARS*/", variables).replace("/*STYLE*/", style["css"]).replace("/*FONTS*/", style["fonts"]).replace("/*BODY*/", body).replace("/*REPO*/", REPO).replace("/*PAGES*/", PAGES)
 
 
 # --- the write-up -----------------------------------------------------------------------------------------
@@ -893,7 +899,6 @@ def build():
         "**Not in this pass:** Claude Code, Cursor and others; repeats two and three of the plan; any mode with subagents.",
         "**Made with an AI assistant.** The tasks, the benchmark and this write-up were produced with Claude Code, which is not among the harnesses compared.")
     doc.p(f"The [full list of limits](#what-this-does-not-show) is further down. To explore: [interactive results](results/index.html) · [every ship, running](ships/index.html) · [data]({HERE}/data).")
-    doc.add("markdown-only", "The first two of those are HTML pages: GitHub shows their source. Open them from a clone (`docs/first-pass/index.html`) or through GitHub Pages if it is switched on for this repository.")
 
     # Setup
     doc.h(2, "Setup")
@@ -1165,6 +1170,11 @@ def build():
     return doc, rows, ships, gpt, never_lost
 
 
+def on_site(text):
+    """Point a Markdown text's links to pages (the report's own, the ships, the interactive results) at the site."""
+    return re.sub(r"\]\(((?:ships|results)/[^)#]*\.html)\)", rf"]({PAGES}/\1)", text)
+
+
 def front_page(doc):
     """Put the report's opening (findings, the at-a-glance tables, the 3D judging, the caveats) on the repository's
     front page, between its "Key findings" heading and the heading where the description of the tool begins."""
@@ -1173,14 +1183,13 @@ def front_page(doc):
     end = next(index for index, title in titles if title == "Setup")
     opening = Doc()
     opening.blocks = doc.blocks[start:end]
-    text = markdown(opening)
-    # From the front page the report's files are two folders down, and a page's source is no use as a link there.
-    text = re.sub(r"\[!\[([^\]]*)\]\((ships/thumbs/[^)]+)\)\]\(ships/[^)]+\)", r"![\1](docs/first-pass/\2)", text)
+    text = on_site(markdown(opening))
+    # From the front page the report's pictures are two folders down.
     text = re.sub(r"\]\((img|ships|results|data)/", r"](docs/first-pass/\1/", text)
     text = text.replace("](#what-this-does-not-show)", "](docs/first-pass/README.md#what-this-does-not-show)")
-    text = text.replace("Each picture opens the page itself: drag to move the camera. ", "")
     text = text.replace(") is further down.", ") is in the report.")
-    text += "\n\n**[Read the full report](docs/first-pass/README.md)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits."
+    text += (f"\n\n**[Open the full report]({PAGES}/)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits. "
+             "It is also there [as Markdown](docs/first-pass/README.md).")
     readme = ROOT / "README.md"
     whole = readme.read_text()
     begin, finish = whole.index("\n## Key findings\n"), whole.index("\n## The benchmark itself\n")
@@ -1256,7 +1265,8 @@ def main():
         (OUT / "img" / name).write_text(content)
     if shutil.which("rsvg-convert"):
         subprocess.run(["rsvg-convert", "-w", "1600", str(OUT / "img" / "card.svg"), "-o", str(OUT / "img" / "card.png")], check=True)
-    (OUT / "README.md").write_text(markdown(doc) + "\n")
+    (OUT / "README.md").write_text(on_site(markdown(doc)).replace(
+        "**Harness Bench, first pass**", f"**Harness Bench, first pass** · [open this report as a page]({PAGES}/)", 1) + "\n")
     front_page(doc)
     (OUT / "index.html").write_text(page(to_html(doc)))
     tidy = lambda r: {k: v for k, v in r.items() if k != "interval"} | {"interval": r["interval"]}

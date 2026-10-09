@@ -2,7 +2,7 @@
 
 Does the coding harness matter, or only the model? Harness Bench runs the same tasks with the same models through different agent harnesses (Codex, Pi, oh-my-pi, OpenCode, Hermes, Devin, Droid, DeepSeek Harness, and desktop apps run by hand; an adapter for Claude Code exists but was not part of the first pass) and reports pass rate, time, tokens and cost for each, with the statistics needed to tell a real difference from run-to-run noise.
 
-> **Status (2026-10-08): a first pass has been run.** Ten harnesses, nine tasks, one run each (216 runs). Read the [first-pass report](docs/first-pass/README.md) with its limits before quoting any number: with one run per cell, no difference in pass rate is statistically clear. Repeats two and three of the plan have not been run.
+> **Status (2026-10-08): a first pass has been run.** Ten harnesses, nine tasks, one run each (216 runs). Read the [first-pass report](https://waveorwaves.github.io/harness-bench/first-pass/) ([as Markdown](docs/first-pass/README.md)) with its limits before quoting any number: with one run per cell, no difference in pass rate is statistically clear. Repeats two and three of the plan have not been run.
 
 ## Key findings
 
@@ -49,12 +49,12 @@ One task has no single right answer: a real-time 3D pirate ship at sunset, in on
 
 | | | |
 |---|---|---|
-| ![Codex app · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex-app.jpg) Codex app · gpt-6.1-sol | ![Devin · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.devin.jpg) Devin · gpt-6.1-sol | ![Droid · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.droid.jpg) Droid · gpt-6.1-sol |
-| ![oh-my-pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.omp.jpg) oh-my-pi · gpt-6.1-sol | ![Pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.pi.jpg) Pi · gpt-6.1-sol | ![DeepSeek Harness · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.deepseek-harness.jpg) DeepSeek Harness · gpt-6.1-sol |
-| ![Codex CLI · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex.jpg) Codex CLI · gpt-6.1-sol | ![OpenCode · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.opencode.jpg) OpenCode · gpt-6.1-sol | ![Capy · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.capy.jpg) Capy · gpt-6.1-sol |
-| ![Hermes Agent · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.hermes.jpg) Hermes Agent · gpt-6.1-sol |  |  |
+| [![Codex app · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex-app.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.codex-app.html) Codex app · gpt-6.1-sol | [![Devin · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.devin.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.devin.html) Devin · gpt-6.1-sol | [![Droid · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.droid.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.droid.html) Droid · gpt-6.1-sol |
+| [![oh-my-pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.omp.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.omp.html) oh-my-pi · gpt-6.1-sol | [![Pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.pi.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.pi.html) Pi · gpt-6.1-sol | [![DeepSeek Harness · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.deepseek-harness.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.deepseek-harness.html) DeepSeek Harness · gpt-6.1-sol |
+| [![Codex CLI · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.codex.html) Codex CLI · gpt-6.1-sol | [![OpenCode · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.opencode.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.opencode.html) OpenCode · gpt-6.1-sol | [![Capy · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.capy.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.capy.html) Capy · gpt-6.1-sol |
+| [![Hermes Agent · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.hermes.jpg)](https://waveorwaves.github.io/harness-bench/first-pass/ships/gpt-6-1-sol.hermes.html) Hermes Agent · gpt-6.1-sol |  |  |
 
-The ten gpt-6.1-sol pages, best-judged first. [All 23 pages](docs/first-pass/ships/index.html), the DeepSeek V4.1 Flash ones included.
+The ten gpt-6.1-sol pages, best-judged first. Each picture opens the page itself: drag to move the camera. [All 23 pages](https://waveorwaves.github.io/harness-bench/first-pass/ships/index.html), the DeepSeek V4.1 Flash ones included.
 
 ## Before quoting a number
 
@@ -65,11 +65,9 @@ The ten gpt-6.1-sol pages, best-judged first. [All 23 pages](docs/first-pass/shi
 - **Not in this pass:** Claude Code, Cursor and others; repeats two and three of the plan; any mode with subagents.
 - **Made with an AI assistant.** The tasks, the benchmark and this write-up were produced with Claude Code, which is not among the harnesses compared.
 
-The [full list of limits](docs/first-pass/README.md#what-this-does-not-show) is in the report. To explore: [interactive results](docs/first-pass/results/index.html) · [every ship, running](docs/first-pass/ships/index.html) · [data](https://github.com/Waveorwaves/harness-bench/tree/main/docs/first-pass/data).
+The [full list of limits](docs/first-pass/README.md#what-this-does-not-show) is in the report. To explore: [interactive results](https://waveorwaves.github.io/harness-bench/first-pass/results/index.html) · [every ship, running](https://waveorwaves.github.io/harness-bench/first-pass/ships/index.html) · [data](https://github.com/Waveorwaves/harness-bench/tree/main/docs/first-pass/data).
 
-The first two of those are HTML pages: GitHub shows their source. Open them from a clone (`docs/first-pass/index.html`) or through GitHub Pages if it is switched on for this repository.
-
-**[Read the full report](docs/first-pass/README.md)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits.
+**[Open the full report](https://waveorwaves.github.io/harness-bench/first-pass/)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits. It is also there [as Markdown](docs/first-pass/README.md).
 
 ## The benchmark itself
 
