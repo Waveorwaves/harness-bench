@@ -53,12 +53,12 @@ SETTINGS = {
 ROUTE = {"devin": "Devin plan", "droid": "Factory plan"}
 MODELS = collections.OrderedDict([
     ("gpt-6-1-sol", "gpt-6.1-sol, medium effort"),
-    ("deepseek-flash-high", "DeepSeek's API, high effort"),
+    ("deepseek-flash-high", "DeepSeek V4.1 Flash on DeepSeek's API, high effort"),
     ("deepseek-v4-1-flash-plan", "DeepSeek V4.1 Flash as hosted by the harness's plan, high effort"),
-    ("deepseek-flash", "DeepSeek's API, \"medium\" asked for (superseded)"),
+    ("deepseek-flash", "DeepSeek V4.1 Flash on DeepSeek's API, \"medium\" asked for (superseded)"),
 ])
-SHORT = {"gpt-6-1-sol": "gpt-6.1-sol", "deepseek-flash-high": "DeepSeek API, high", "deepseek-v4-1-flash-plan": "DeepSeek on its plan",
-         "deepseek-flash": "DeepSeek API, earlier run"}
+SHORT = {"gpt-6-1-sol": "gpt-6.1-sol", "deepseek-flash-high": "DeepSeek V4.1 Flash, API", "deepseek-v4-1-flash-plan": "DeepSeek V4.1 Flash, on its plan",
+         "deepseek-flash": "DeepSeek V4.1 Flash, API, earlier run"}
 SHIP = "pirate-ship-3d"
 BRIEF = {"md-preview": "md", "kanban-undo": "kanban", "expenses-csv": "expenses", "checkout-refactor": "checkout", "bookmarks-tags": "bookmarks",
          "todo-app": "todo", "tabs-keyboard": "tabs", "log-report": "log", SHIP: "ship"}       # column heads for the per-task tables
@@ -83,7 +83,7 @@ ALLOWANCE = [
      "0% before, 12% after, in a fresh window"),
     ("Devin plan", "Devin, nine gpt-6.1-sol tasks and one attempt cut off at 15 minutes", "about 11 points of the daily limit; 5 of the weekly limit",
      "first reading came four minutes after the first run started"),
-    ("Factory plan", "Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek tasks",
+    ("Factory plan", "Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek V4.1 Flash tasks",
      "about 3 points of the weekly limit", "one reading, after all of them"),
 ]
 
@@ -135,14 +135,14 @@ STYLES = {
             "th, nav a, .stats span, .eyebrow { font-size: 12px; } th { letter-spacing: .03em; font-weight: 500; } th, td { padding-right: 16px; }"),
 }
 STYLE = "lab"
-BLUE = ORANGE = GREY = INK = MUTED = LINE = SURFACE = PAPER = ""
+BLUE = ORANGE = GREY = INK = MUTED = LINE = SURFACE = PAPER = ACCENT = ""
 FONT = "font-family=\"Helvetica Neue, Helvetica, Arial, sans-serif\""
 
 
 def use(theme):
     """Point the chart colours at the chosen palette's light or dark form."""
     c = PALETTES[PALETTE][theme]
-    globals().update(BLUE=c["a"], ORANGE=c["b"], GREY=c["n"], INK=c["ink"], MUTED=c["muted"], LINE=c["line"], SURFACE=c["surface"], PAPER=c["page"])
+    globals().update(BLUE=c["a"], ORANGE=c["b"], GREY=c["n"], INK=c["ink"], MUTED=c["muted"], LINE=c["line"], SURFACE=c["surface"], PAPER=c["page"], ACCENT=c["accent"])
 
 
 use("light")
@@ -266,6 +266,10 @@ def word(number):
     return WORDS[number] if 0 <= number < len(WORDS) else str(number)
 
 
+def ordinal(number):
+    return f"{number}{'th' if 10 <= number % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(number % 10, 'th')}"
+
+
 def shared_ranks(order, tally):
     """1, 1, 3 for a three-way list whose first two are level, written 1=, 1=, 3."""
     labels = []
@@ -329,6 +333,56 @@ def bars(title, rows, segments, scale, unit_label, note=None):
     if note:
         out.append(text(0, height - 8, note, 12, MUTED))
     return svg(width, height, "".join(out), f"{title} ({unit_label})")
+
+
+def marked(x, y, value, size=14, fill=None, anchor="start", weight="400"):
+    """Text that may carry note markers, drawn as small raised numbers in the accent colour."""
+    pieces, last = [], 0
+    for match in MARK.finditer(value):
+        pieces.append(html.escape(value[last:match.start()]))
+        pieces.append(f'<tspan dy="-5" font-size="{max(size - 4, 9)}" fill="{ACCENT}"> {match.group(1)}</tspan><tspan dy="5"></tspan>')
+        last = match.end()
+    pieces.append(html.escape(value[last:]))
+    return (f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{fill or INK}" text-anchor="{anchor}" font-weight="{weight}">' + "".join(pieces) + "</text>")
+
+
+def board_chart(title, board):
+    """The leaderboard as one picture: a pass bar with its 95% interval, then time, cost, tokens and the 3D result."""
+    top, step, width = 96, 58, 980
+    height = top + step * len(board) + 8
+    out = [text(0, 22, title, 16, INK, weight="600"),
+           text(0, 46, "Bar: tasks passed. Thin line: the 95% interval for that pass rate. 3D task: pairs won, tied and lost.", 12, MUTED)]
+    for x, label, anchor in ((0, "HARNESS", "start"), (212, "PASSED", "start"), (552, "TIME", "end"), (692, "COST", "end"), (872, "TOKENS", "end"), (900, "3D TASK", "start")):
+        out.append(text(x, top - 14, label, 11, MUTED, anchor, "600"))
+    out.append(f'<line x1="0" y1="{top - 4}" x2="{width}" y2="{top - 4}" stroke="{INK}" stroke-width="1.5"/>')
+    for index, row in enumerate(board):
+        y = top + index * step
+        out.append(marked(0, y + 24, row["name"], 15, INK, weight="600"))
+        out.append(marked(0, y + 42, row["sub"], 12, MUTED))
+        rate = row["passed"] / row["runs"]
+        out.append(text(212, y + 31, f"{rate:.0%}", 22, INK, weight="600"))
+        left, span = 280, 150
+        out.append(f'<rect x="{left}" y="{y + 16}" width="{span}" height="9" rx="4.5" fill="{LINE}"/>')
+        out.append(f'<rect x="{left}" y="{y + 16}" width="{span * rate:.1f}" height="9" rx="4.5" fill="{BLUE}"/>')
+        if row["interval"]:
+            low, high = row["interval"]
+            out.append(f'<rect x="{left + span * low:.1f}" y="{y + 19.5}" width="{span * (high - low):.1f}" height="2" fill="{ORANGE}"/>')
+        out.append(text(left, y + 42, f"{row['passed']} of {row['runs']} passed", 12, MUTED))
+        for x, key in ((552, "time"), (692, "cost"), (872, "tokens")):
+            out.append(marked(x, y + 24, row[key], 14, INK, "end", "500"))
+            out.append(text(x, y + 42, row[key + "_sub"], 11.5, MUTED, "end"))
+        if row["judged"]:
+            total, x = sum(row["judged"]), 900
+            for count, colour in zip(row["judged"], (BLUE, GREY, ORANGE)):
+                length = 80 * count / total
+                if count:
+                    out.append(f'<rect x="{x:.1f}" y="{y + 16}" width="{max(length - 1, 1):.1f}" height="9" rx="2" fill="{colour}"/>')
+                x += length
+            out.append(text(900, y + 42, "{}-{}-{}".format(*row["judged"]), 12, MUTED))
+        else:
+            out.append(marked(900, y + 31, row["judged_text"], 14, MUTED))
+        out.append(f'<line x1="0" y1="{y + step - 2}" x2="{width}" y2="{y + step - 2}" stroke="{LINE}"/>')
+    return svg(width, height, "".join(out), title)
 
 
 def time_chart(title, rows):
@@ -485,6 +539,8 @@ def markdown(doc):
             continue        # page furniture; the text beside it says the same
         elif kind == "notes":
             out.append("\n".join(f"{number}. {note}" for number, note in enumerate(values[1], 1)))
+        elif kind == "board":
+            out.append(f"![{values[2]}](img/board-{values[0]}-card.svg)")
         elif kind == "img":
             out.append(f"![{values[1]}]({values[0].replace('.svg', '-card.svg')})")
         elif kind == "code":
@@ -501,7 +557,8 @@ def markdown(doc):
             lines = [cells[i:i + 3] for i in range(0, len(cells), 3)]
             out.append("\n".join(["| | | |", "|---|---|---|"] + ["| " + " | ".join(line + [""] * (3 - len(line))) + " |" for line in lines]))
     raised = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")      # plain characters: some viewers show HTML tags as text
-    return MARK.sub(lambda match: match.group(1).translate(raised), "\n\n".join(out))
+    text = "\n\n".join(out).replace("}{^", "}\u202f{^")       # two notes on one figure stay two numbers, not one
+    return MARK.sub(lambda match: match.group(1).translate(raised), text)
 
 
 def to_html(doc, level_shift=0):
@@ -520,6 +577,25 @@ def to_html(doc, level_shift=0):
             dark = values[0].replace(".svg", "-dark.svg")
             out.append(f"<figure><picture><source srcset=\"{dark}\" media=\"(prefers-color-scheme: dark)\">"
                        f"<img src=\"{values[0]}\" alt=\"{html.escape(values[1])}\" loading=\"lazy\"></picture></figure>")
+        elif kind == "board":
+            lines = ["<div class=\"board\"><div class=\"row head\"><span>Harness</span><span>Passed</span><span class=\"num\">Time</span>"
+                     "<span class=\"num\">Cost</span><span class=\"num\">Tokens</span><span>3D task</span></div>"]
+            for row in values[1]:
+                rate = row["passed"] / row["runs"]
+                low, high = row["interval"] or (rate, rate)
+                if row["judged"]:
+                    parts = "".join(f"<i class=\"{name}\" style=\"flex:{count}\"></i>" for name, count in zip(("w", "t", "l"), row["judged"]) if count)
+                    judged_cell = f"<span class=\"wtl\">{parts}</span><small>{'-'.join(str(count) for count in row['judged'])}</small>"
+                else:
+                    judged_cell = f"<b>{inline(row['judged_text'])}</b>"
+                lines.append(
+                    f"<div class=\"row\"><div class=\"who\"><strong>{inline(row['name'])}</strong><small>{inline(row['sub'])}</small></div>"
+                    f"<div class=\"pass\"><b>{rate:.0%}</b><div><span class=\"bar\"><i style=\"width:{rate:.1%}\"></i>"
+                    f"<u style=\"left:{low:.1%};width:{high - low:.1%}\"></u></span><small>{row['passed']} of {row['runs']} passed</small></div></div>"
+                    + "".join(f"<div class=\"num\" data-label=\"{label}\"><b>{inline(row[key])}</b><small>{inline(row[key + '_sub'])}</small></div>"
+                              for key, label in (("time", "Time"), ("cost", "Cost"), ("tokens", "Tokens")))
+                    + f"<div class=\"judged\" data-label=\"3D task\">{judged_cell}</div></div>")
+            out.append("".join(lines) + "</div>")
         elif kind == "notes":
             out.append("<ol class=\"notes\">" + "".join(f"<li id=\"note-{values[0]}-{number}\">{inline(note)}</li>" for number, note in enumerate(values[1], 1)) + "</ol>")
         elif kind == "tiles":
@@ -598,8 +674,28 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums lining-nums; 
 th:last-child, td:last-child { padding-right: 0; }
 figure { margin: 26px 0; max-width: 860px; }
 figure img { display: block; width: 100%; height: auto; }
+.board { margin: 20px 0 22px; border-top: 1.5px solid var(--ink); font-family: var(--f-body); }
+.board .row { display: grid; grid-template-columns: minmax(170px, 1.7fr) minmax(200px, 1.9fr) minmax(104px, 1fr) minmax(96px, .9fr) minmax(150px, 1.3fr) minmax(90px, .8fr); gap: 0 18px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.board .head { font-family: var(--f-ui); font-size: 11.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); padding: 8px 0; }
+.board small { display: block; font-family: var(--f-body); font-size: 12px; line-height: 1.35; color: var(--ink-2); margin-top: 3px; }
+.board .who strong { font-size: 15.5px; }
+.board .pass { display: grid; grid-template-columns: 62px 1fr; gap: 0 10px; align-items: center; }
+.board .pass > b { font-family: var(--f-display); font-size: 25px; font-weight: 600; letter-spacing: -0.02em; }
+.board .bar { position: relative; display: block; height: 9px; border-radius: 5px; background: var(--line); margin-top: 4px; }
+.board .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--a); }
+.board .bar u { position: absolute; top: 3.5px; height: 2px; background: var(--b); }
+.board .num { text-align: right; }
+.board .num b, .board .judged b { font-family: var(--f-mono); font-size: 14.5px; font-weight: 500; }
+.board .wtl { display: flex; gap: 1px; height: 9px; margin-top: 4px; }
+.board .wtl i { border-radius: 2px; } .board .wtl .w { background: var(--a); } .board .wtl .t { background: var(--n); } .board .wtl .l { background: var(--b); }
+@media (max-width: 760px) {
+  .board .head { display: none; } .board .row { grid-template-columns: 1fr 1fr 1fr; gap: 12px 14px; padding: 16px 0; align-items: start; }
+  .board .who, .board .pass { grid-column: 1 / -1; } .board .judged { grid-column: 1 / -1; max-width: 220px; } .board .num { text-align: left; }
+  .board [data-label]::before { content: attr(data-label); display: block; font-family: var(--f-ui); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); margin-bottom: 2px; }
+}
 sup.fn { font-size: 0.72em; line-height: 0; margin-left: 2px; }
 sup.fn a { font-family: var(--f-mono); text-decoration: none; padding: 0 1px; }
+sup.fn + sup.fn::before { content: ","; color: var(--ink-2); }
 ol.notes { font-family: var(--f-body); font-size: 13.5px; line-height: 1.5; color: var(--ink-2); margin: -10px 0 30px; padding-left: 20px; }
 ol.notes li { max-width: 78ch; margin: 5px 0; scroll-margin-top: 70px; }
 ol.notes li::marker { font-family: var(--f-mono); color: var(--accent); }
@@ -699,27 +795,30 @@ def build():
         f"**The fastest harness was the one that could look at its own work.** The {fastest['name']} has a browser tool built in and made its 3D page in "
         f"{fastest['ship_seconds'] / 60:.1f} minutes; the Codex CLI, same model and same maker, took {by_id['gpt-6-1-sol']['codex']['ship_seconds'] / 60:.1f}. "
         "The app also ran outside the sandbox, so part of that gap is the setting.",
-        f"**Passing the checks was not the same as being finished.** Every 3D page passed the automatic checks. Judged blind, side by side, "
+        f"**Passing the checks was not the same as being finished.** Every 3D page that was judged passed the automatic checks. Judged blind, side by side, "
         f"{word(len(never_lost))} of the ten never lost a pair and {word(len(lost_most))} lost eight of nine.",
-        f"**A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek's API the nine tasks cost less in every harness, about half for most "
+        f"**A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek V4.1 Flash, through DeepSeek's API, the nine tasks cost less in every harness whose cost is fully known, about half for most "
         f"({min(halves):.0%} to {max(halves):.0%} of the gpt-6.1-sol price), and the eight smaller tasks were as fast. But the 3D page took {min(api_ship):.0f} to {max(api_ship):.0f} minutes instead of {min(gpt_ship):.0f} to {max(gpt_ship):.0f}. "
         f"{word(len(stopped)).capitalize()} harnesses were still editing it when stopped at an hour.",
         "**One run each.** Every figure is a single run per harness, model and task. No difference in pass rate is statistically clear, and time and cost can move on a second attempt.")
 
     def glance(table_rows, result, notes, route=None):
-        head = ["Harness"] + (["Model through"] if route else []) + ["Passed", "Time", "Cost", "Tokens", "3D task, W-T-L"]
+        """One leaderboard row per harness. Figures that need explaining get a note, numbered in reading order."""
         priced_rows = [r for r in table_rows if r["list_known"] == r["runs"] and r["model"] == table_rows[0]["model"]]
         costs = sorted(r["list_usd"] for r in priced_rows)
-        lines = []
+        board = []
         for r in table_rows:
             ship, on_plan, hand = cells[(r["model"], r["harness"])][SHIP], r["model"] == "deepseek-v4-1-flash-plan", r["harness"] in HOW
-            cost, tokens = cost_cell(r), millions(tok_total(r), r["tokens_known"]["input"], r["runs"])
-            why = collections.defaultdict(list)     # the notes each cell needs, numbered below in reading order
+            cost, cost_sub = (usd(r["list_usd"]), "at list price") if r["list_known"] == r["runs"] else ("unknown", "")
+            known = r["tokens_known"]["input"]
+            tokens = f"{tok_total(r) / 1e6:.2f}M" if known else "—"
+            tokens_sub = f"{r['tokens']['output'] / 1e6:.2f}M out · {r['tokens']['cached'] / 1e6:.2f}M cached" if known else "not reported"
+            why = collections.defaultdict(list)     # the notes each figure needs
             if hand:
                 why["name"].append("Run by hand in its desktop app on a Mac with a GPU, not in the sandbox. Compare its time with the other hand-run app, not with the command-line harnesses.")
             if on_plan:
-                why["route"].append("The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. "
-                                    "The plan's model may not be the same as the API's.")
+                why["sub"].append("The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. "
+                                  "Whether the plan serves the model with the same settings as the API is not visible.")
             if str(ship.get("note", "")).startswith("Second attempt"):
                 why["time"].append("The 3D task is a second attempt. The first was cut off at an earlier 15-minute limit while still working, and its tokens are not counted.")
             if "process_seconds" in ship:
@@ -728,53 +827,62 @@ def build():
                 why["time"].append("Still working on the 3D task when stopped at 60 minutes. The page it left passes every automatic check, but the run counts as not passed.")
             if r["own_known"] and not r["list_known"]:
                 note = f"{r['name']} reports dollars, not tokens. This is its own figure, with one task's share worked out from its usage total, so the true cost is this or a little more."
-                cost, tokens = f"at least {usd(r['own_usd'])}", "—"
+                cost, cost_sub = f"{usd(r['own_usd'])}+", "its own figure"
                 why["cost"].append(note), why["tokens"].append(note)
             if 0 < r["list_known"] < r["runs"]:
                 note = f"{r['name']} reports usage only when a run ends, so its stopped 3D run has no tokens. Cost and tokens cover the other {word(r['list_known'])} tasks."
-                cost, tokens = f"at least {usd(r['list_usd'])}", f"{tok_total(r) / 1e6:.2f}M"
+                cost, cost_sub = f"{usd(r['list_usd'])}+", f"{r['list_known']} of {r['runs']} tasks priced"
                 why["cost"].append(note), why["tokens"].append(note)
             if len(costs) > 2 and r in priced_rows and r["list_usd"] == costs[0] and costs[0] < 0.6 * costs[1]:
                 others = [x["ship_seconds"] / 60 for x in table_rows if x["model"] == r["model"] and x is not r]
                 place = result["order"].index(r["harness"]) + 1
                 why["cost"].append(f"By far the shortest run on this model: {r['name']}'s 3D page took {r['ship_seconds'] / 60:.1f} minutes where the others took {min(others):.0f} to {max(others):.0f}, "
-                                   f"so it used far fewer tokens than the other complete runs. That page was judged {place}th of {len(result['order'])}, and the run passed {r['passed']} of {r['runs']} tasks.")
+                                   f"so it used far fewer tokens than the other complete runs. That page was judged {ordinal(place)} of {len(result['order'])}, and the run passed {r['passed']} of {r['runs']} tasks.")
             if on_plan and r["list_known"] == r["runs"] and (ship.get("input_tokens") or 0) > 1_000_000:
                 why["cost"].append(f"Most of this is the 3D run, which sent {ship['input_tokens'] / 1e6:.1f}M uncached input tokens.")
-            if result and r["harness"] in result["tally"] and r["model"] == result_model(result):
-                judged_as = "{}-{}-{}".format(*result["tally"][r["harness"]])
-            else:
-                own, judged_as = ships.get(r["model"]), "—"
-                if own:
-                    why["judged"].append(f"Judged separately, as a single pair: {NAMES[own['order'][0]]}'s page was picked over {NAMES[own['order'][1]]}'s.")
-            marks = {column: "".join(notes.mark(note) for note in why[column]) for column in ("name", "route", "time", "cost", "tokens", "judged")}
-            lines.append([r["name"] + marks["name"]] + ([route(r) + marks["route"]] if route else [])
-                         + [f"{r['passed']} of {r['runs']}", f"{r['seconds'] / 60:.0f} min" + marks["time"], cost + marks["cost"], tokens + marks["tokens"], judged_as + marks["judged"]])
-        return head, lines, tuple(i + (1 if route else 0) for i in (2, 4))
+            judged_row = result["tally"][r["harness"]] if result and r["harness"] in result["tally"] and r["model"] == result_model(result) else None
+            if not judged_row and ships.get(r["model"]):
+                own = ships[r["model"]]
+                why["judged"].append(f"Judged separately, as a single pair: {NAMES[own['order'][0]]}'s page was picked over {NAMES[own['order'][1]]}'s.")
+            marks = {column: "".join(notes.mark(note) for note in why[column]) for column in ("name", "sub", "time", "cost", "tokens", "judged")}
+            where = route(r) if route else ROUTE.get(r["harness"], "Codex subscription")
+            sub = where + (" · by hand" if hand else "")
+            board.append({
+                "name": r["name"] + marks["name"], "sub": sub + marks["sub"],
+                "passed": r["passed"], "runs": r["runs"], "interval": r["interval"],
+                "time": f"{r['seconds'] / 60:.0f} min" + marks["time"], "time_sub": f"3D task {r['ship_seconds'] / 60:.1f} min" if r["ship_status"] != "timed_out" else "3D task stopped at 60",
+                "cost": cost + marks["cost"], "cost_sub": cost_sub, "tokens": tokens + marks["tokens"], "tokens_sub": tokens_sub,
+                "judged": judged_row, "judged_text": "—" + marks["judged"]})
+        return board
 
     result_model = lambda result: next(model for model, value in ships.items() if value is result)
+    doc.boards = {}
     doc.h(2, "Results at a glance")
-    doc.p("Time is for all nine tasks. Cost is tokens at one list price for every harness, an estimate and not a bill. Tokens are everything the harness reports, cached input included. "
-          "The last column is the 3D task's blind judging: pairs won, tied and lost. Numbers beside a figure point to the notes under each table.")
-    doc.h(3, "gpt-6.1-sol, medium effort")
-    notes = Notes("g")
-    doc.table(*glance(gpt, ships["gpt-6-1-sol"], notes))
-    doc.add("notes", notes.key, notes.items)
-    doc.img("img/scatter-gpt.svg", "Time against cost for the nine tasks on gpt-6.1-sol, one point per harness")
-    doc.h(3, "DeepSeek, high effort")
-    notes = Notes("d")
-    doc.table(*glance(api + hosted, ships["deepseek-flash-high"], notes,
-                      route=lambda r: "DeepSeek's API" if r["model"] == "deepseek-flash-high" else "its own plan"))
-    doc.add("notes", notes.key, notes.items)
+    doc.p("One row per harness, best first: tasks passed, then time. The bar is the share of the nine tasks passed, and the thin line across it is the 95% interval for that share, which is wide with nine runs. "
+          "Time is for all nine tasks. Cost is tokens at one list price for every harness, an estimate and not a bill. The last column is the 3D task's blind judging: pairs won, tied and lost. "
+          "Small numbers point to the notes under each board.")
+    for key, title, table_rows, result, route in (
+            ("gpt", "gpt-6.1-sol, medium effort", gpt, ships["gpt-6-1-sol"], None),
+            ("deepseek", "DeepSeek V4.1 Flash, high effort", api + hosted, ships["deepseek-flash-high"],
+             lambda r: "DeepSeek's API" if r["model"] == "deepseek-flash-high" else "its own plan")):
+        notes = Notes(key[0])
+        doc.h(3, title)
+        doc.boards[key] = (title, glance(table_rows, result, notes, route))
+        best = min(table_rows, key=lambda r: (-r["passed"], r["seconds"]))
+        doc.add("board", key, doc.boards[key][1], f"Leaderboard for {title}: {len(table_rows)} harnesses, from {best['name']} "
+                f"({best['passed']} of {best['runs']} passed in {best['seconds'] / 60:.0f} minutes) down; the same figures are in the detailed results")
+        doc.add("notes", notes.key, notes.items)
+        if key == "gpt":
+            doc.img("img/scatter-gpt.svg", "Time against cost for the nine tasks on gpt-6.1-sol, one point per harness")
 
     doc.h(2, "The 3D task, judged blind")
-    doc.p(f"One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page passed the ten automatic checks, so one person compared them side by side, "
+    doc.p(f"One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page that was judged passed the ten automatic checks, so one person compared them side by side, "
           f"{pairs} pairs in all, without knowing which harness made which. The rule was completeness first (gaps in the ship that the sea shows through), then a little weight for style.")
     doc.img("img/ships-gpt.svg", "Pairs won, tied and lost by each harness's ship on gpt-6.1-sol")
-    doc.img("img/ships-deepseek.svg", "Pairs won, tied and lost by each harness's ship on DeepSeek's API at high effort")
+    doc.img("img/ships-deepseek.svg", "Pairs won, tied and lost by each harness's ship on DeepSeek V4.1 Flash at high effort")
     doc.gallery([(f"ships/thumbs/gpt-6-1-sol.{h}.jpg", f"ships/gpt-6-1-sol.{h}.html", f"{NAMES[h]} · gpt-6.1-sol") for h in ships["gpt-6-1-sol"]["order"]
                  if (OUT / "ships" / f"gpt-6-1-sol.{h}.html").is_file()])
-    doc.p("The ten gpt-6.1-sol pages, best-judged first. Each picture opens the page itself: drag to move the camera. [All 23 pages](ships/index.html), DeepSeek's included.")
+    doc.p("The ten gpt-6.1-sol pages, best-judged first. Each picture opens the page itself: drag to move the camera. [All 23 pages](ships/index.html), the DeepSeek V4.1 Flash ones included.")
 
     doc.h(2, "Before quoting a number")
     doc.ul(
@@ -811,7 +919,8 @@ def build():
             "ChatGPT/Codex subscription; Devin plan (Devin); Factory plan (Droid)" if entry["id"] == "gpt-6-1-sol" else "Devin plan (Devin); Factory plan (Droid)"
         model_rows.append([MODELS[entry["id"]], ", ".join(f"`{name}`" for name in names), entry.get("reasoning_effort") or "default", paid, ", ".join(NAMES[h] for h in used)])
     doc.table(["Setting", "Model names passed", "Effort asked for", "Paid through", "Harnesses"], model_rows)
-    doc.p("All subscriptions were the $20 tier of each plan. Effort is what each harness was asked for; it could not be confirmed from the results.")
+    doc.p("All subscriptions were the $20 tier of each plan. Effort is what each harness was asked for; it could not be confirmed from the results. "
+          "DeepSeek's API takes its model as `deepseek-flash`; DeepSeek's own harness lists that id as DeepSeek V4.1 Flash.")
     doc.h(3, "Tasks")
     doc.table(["Task", "Kind", "What the agent must do", "Hidden checks"], [[f"`{task}`", kind, what, checks[task]] for task, (kind, what) in TASKS.items()], right=(3,))
     doc.p(f"Prompts, seeds, checks and reference solutions are in [`tasks/`]({REPO}/tree/main/tasks).")
@@ -872,13 +981,13 @@ def build():
         "**Capy** reports no tokens per run. Its cost is the dollar figure on its own usage page.",
         "**DeepSeek Harness** is timed to its final answer. Its command line then stayed open about five minutes before exiting; that wait is kept in the data as `process_seconds`.")
 
-    doc.h(3, "4. DeepSeek's API, high effort")
-    doc.img("img/time-deepseek.svg", "Minutes for the nine tasks on DeepSeek's API at high effort")
+    doc.h(3, "4. DeepSeek V4.1 Flash on DeepSeek's API, high effort")
+    doc.img("img/time-deepseek.svg", "Minutes for the nine tasks on DeepSeek V4.1 Flash at high effort")
     doc.table(*time_cost(api, ships["deepseek-flash-high"]), right=(2, 3, 4, 5, 7))
     doc.table(*usage(api), right=(1, 2, 3, 4, 5, 6))
     both = [(by_id["gpt-6-1-sol"][r["harness"]], r) for r in api if r["list_known"] == r["runs"]]
     doc.ul(
-        "**Cheaper in every harness.** " + "; ".join(f"{a['name']} {usd(b['list_usd'])} against {usd(a['list_usd'])}" for a, b in both) + ".",
+        "**Cheaper in every harness whose cost is fully known.** " + "; ".join(f"{a['name']} {usd(b['list_usd'])} against {usd(a['list_usd'])}" for a, b in both) + ".",
         f"**The extra time is the ship.** The eight smaller tasks took {min(r['rest_seconds'] for r in api) / 60:.0f} to {max(r['rest_seconds'] for r in api) / 60:.0f} minutes in total, "
         f"against {min(r['rest_seconds'] for r in gpt) / 60:.0f} to {max(r['rest_seconds'] for r in gpt) / 60:.0f} on gpt-6.1-sol.",
         "**Two runs never stopped by themselves.** Droid and DeepSeek Harness were still editing their ships at the 60-minute stop. The pages they left pass every automatic check.",
@@ -887,7 +996,7 @@ def build():
     doc.h(3, "5. DeepSeek V4.1 Flash as hosted by a plan")
     doc.table(*time_cost(hosted, None), right=(2, 3, 4, 5, 7))
     doc.table(*usage(hosted), right=(1, 2, 3, 4, 5, 6))
-    doc.p("Only Devin and Droid offer this route. Droid also ran on DeepSeek's own API (section 4): 8 of 9 there, 7 of 9 here. The plans' model and the API's `deepseek-flash` may not be the same model.")
+    doc.p("Only Devin and Droid offer this route. Droid also ran on DeepSeek's own API (section 4): 8 of 9 there, 7 of 9 here. DeepSeek's own harness lists the API's `deepseek-flash` as DeepSeek V4.1 Flash, the name both plans use; whether a plan serves it with the same settings is not visible.")
 
     doc.h(3, "6. By task")
 
@@ -906,18 +1015,18 @@ def build():
     doc.p("Seconds per task, with the tasks in the order of the task table above. ✗ marks a failed check and ■ a run stopped at the time limit.")
     doc.h(4, "gpt-6.1-sol")
     doc.table(*matrix(gpt, "gpt-6-1-sol", seconds_cell))
-    doc.h(4, "DeepSeek's API, high effort")
+    doc.h(4, "DeepSeek V4.1 Flash on DeepSeek's API")
     doc.table(*matrix(api, "deepseek-flash-high", seconds_cell))
     extra = Doc()
     extra.p("Dollars per task at list price. `*` marks a harness's own figure and `?` an unknown cost.")
     extra.h(4, "gpt-6.1-sol: cost per task")
     extra.table(*matrix(gpt, "gpt-6-1-sol", price_cell))
-    extra.h(4, "DeepSeek's API, high effort: cost per task")
+    extra.h(4, "DeepSeek V4.1 Flash on DeepSeek's API: cost per task")
     extra.table(*matrix(api, "deepseek-flash-high", price_cell))
-    extra.h(4, "Plan-hosted DeepSeek: seconds per task")
+    extra.h(4, "DeepSeek V4.1 Flash on a plan: seconds per task")
     extra.table(*matrix(hosted, "deepseek-v4-1-flash-plan", seconds_cell))
     doc.details("Cost per task, and the plan-hosted rows", extra)
-    doc.p(f"On gpt-6.1-sol the pirate ship is {sum(r['ship_seconds'] for r in gpt) / sum(r['seconds'] for r in gpt):.0%} of all time spent; on DeepSeek's API it is "
+    doc.p(f"On gpt-6.1-sol the pirate ship is {sum(r['ship_seconds'] for r in gpt) / sum(r['seconds'] for r in gpt):.0%} of all time spent; on DeepSeek V4.1 Flash it is "
           f"{sum(r['ship_seconds'] for r in api) / sum(r['seconds'] for r in api):.0%}. One task drives most of the time differences.")
 
     doc.h(3, "7. What tripped them up")
@@ -932,7 +1041,7 @@ def build():
                     problems.append([r["name"], MODELS[model], f"`{task}`", f"{record['checks_passed']} of {record['checks_total']}", what])
     doc.table(["Harness", "Model setting", "Task", "Checks passed", "The check that failed, or why the run did not pass"], problems)
     failed_runs = [line for line in problems if "still working" not in line[4]]
-    doc.p(f"Every run that did not pass is on a DeepSeek route. {word(len(failed_runs)).capitalize()} runs failed {word(sum(line[4].count(';') + 1 for line in failed_runs))} checks between them. "
+    doc.p(f"Every run that did not pass is on DeepSeek V4.1 Flash. {word(len(failed_runs)).capitalize()} runs failed {word(sum(line[4].count(';') + 1 for line in failed_runs))} checks between them. "
           "Each failed check tests one behaviour the prompt states, and each was failed by one harness only on that model setting.")
     doc.h(3, "8. Blocked and ungraded runs")
     doc.p("None remain. During the runs one OpenCode run was refused by a subscription usage limit and was run again after the limit reset. "
@@ -943,7 +1052,7 @@ def build():
     doc.p(f"Every page that was judged passes all ten automatic checks, so looks were judged separately. One person (the author) compared pages side by side, {pairs} pairs in all, "
           "without being told which harness made which. Both pages ran live so the camera could be moved. The judge's rule: completeness first (gaps in the ship through which the sea shows), "
           f"\"about the same\" when both are complete, and a small weight for style. {ties} of the {pairs} picks were ties.")
-    for model, title, image in (("gpt-6-1-sol", "gpt-6.1-sol", "img/ships-gpt.svg"), ("deepseek-flash-high", "DeepSeek's API, high effort", "img/ships-deepseek.svg")):
+    for model, title, image in (("gpt-6-1-sol", "gpt-6.1-sol", "img/ships-gpt.svg"), ("deepseek-flash-high", "DeepSeek V4.1 Flash on DeepSeek's API", "img/ships-deepseek.svg")):
         result = ships[model]
         doc.h(4, f"{title}: {result['pairs']} pairs")
         doc.table(["Rank", "Harness", "Won", "Tied", "Lost", "Rating", "95% interval", "Ship time", "Ship cost"],
@@ -958,12 +1067,12 @@ def build():
         doc.details(f"Who beat whom on {title}", grid)
     hosted_result = ships["deepseek-v4-1-flash-plan"]
     winner = hosted_result["order"][0]
-    doc.h(4, "Plan-hosted DeepSeek: 1 pair")
+    doc.h(4, "DeepSeek V4.1 Flash on a plan: 1 pair")
     doc.p(f"{NAMES[winner]}'s page was picked over {NAMES[hosted_result['order'][1]]}'s. The judge's note: the other had the better style but a hole at the back of the ship.")
     doc.ul(
         "**Ratings** are Bradley-Terry strengths on an Elo-style scale (1500 is average). Intervals come from resampling the picks; where they overlap the order is not settled.",
         f"**On gpt-6.1-sol** the five pages that never lost ({', '.join(NAMES[h] for h in never_lost)}) cannot be told apart. Capy's and Hermes Agent's are clearly below the rest.",
-        "**On DeepSeek** the top five overlap; OpenCode's and Hermes Agent's are clearly below. The two top-ranked pages come from runs that were stopped at 60 minutes, so they had the most time.",
+        "**On DeepSeek V4.1 Flash** the top five overlap; OpenCode's and Hermes Agent's are clearly below. The two top-ranked pages come from runs that were stopped at 60 minutes, so they had the most time.",
         "**No second judge**, so there is no measure of agreement. A model judge was not used.")
     doc.h(4, "Every ship")
     gallery = []
@@ -1002,8 +1111,9 @@ def build():
         "**Software rendering.** In the container a 3D page is drawn without a GPU, and a harness that wanted to look at its page had to install its own tooling first.",
         "**Hand-run times come from each app's own record** (the Codex app's session logs, Capy's \"Worked for\" timers), not from the runner's clock.",
         "**Three routes to one model.** gpt-6.1-sol was reached through the ChatGPT/Codex subscription, Devin's plan and Factory's plan. What each provider sets on its side is not visible.",
-        "**Effort is what was asked for.** DeepSeek has no \"medium\" level; the first DeepSeek rows asked for it and ran at an unknown effort, so they were run again at high and are kept only in the appendix.",
-        "**The API's `deepseek-flash` and the plans' DeepSeek V4.1 Flash may be different models.**",
+        "**Effort is what was asked for.** DeepSeek V4.1 Flash has no \"medium\" level; the first rows on it asked for it and ran at an unknown effort, so they were run again at high and are kept only in the appendix.",
+        "**One model name, two routes.** DeepSeek's API takes the model as `deepseek-flash`, which DeepSeek's own harness lists as DeepSeek V4.1 Flash; the Devin and Factory plans use that name for theirs. "
+        "Whether a plan serves it with the same settings as the API is not visible.",
         "**Each harness's own system prompt, tools and defaults are part of what is measured.** Only the model and effort were matched.",
         "**Second attempts.** Devin's and Droid's gpt-6.1-sol ships and Capy's `log-report` are second attempts; the first attempts' tokens are not counted.",
         "**The time limit changed during the study,** from 15 to 60 minutes.",
@@ -1014,14 +1124,14 @@ def build():
         "**Cost is an estimate, not a bill.** It is tokens multiplied by one price list that has not been checked against the providers' pages.",
         "**Token counts are each harness's own report,** read by a separate parser per harness. Definitions can differ, for example in whether reasoning is counted as output.",
         "**Capy reports no tokens per run.** Its cost is its own dollar figure, and one task's share was worked out from its usage total, so it is a floor.",
-        "**Droid reports usage only when a run ends.** Its two stopped ships have no tokens, so its DeepSeek costs are floors.",
+        "**Droid reports usage only when a run ends.** Its two stopped ships have no tokens, so its DeepSeek V4.1 Flash costs are floors.",
         "**Allowance readings are rough:** whole points, single readings, and some cover mixed runs.")
     doc.h(3, "Judging")
     doc.ul(
         "**One judge, one page per harness and model.** Another attempt by the same harness could look different, and another judge could choose differently.",
         "**The rule favours completeness.** It separates flawed pages from clean ones and does not rank the clean ones against each other.",
         "**The judge saw the pages running in a desktop browser with a GPU,** not in the software-rendered setting the automatic checks used.",
-        "**Three judged DeepSeek pages come from runs stopped at the time limit.**",
+        "**Three judged DeepSeek V4.1 Flash pages come from runs stopped at the time limit.**",
         "**Blindness covers file names and the judging page.** A page could in principle identify its maker on screen; none was seen to.")
     doc.h(3, "Scope and age")
     doc.ul(
@@ -1030,16 +1140,20 @@ def build():
         "**One machine, one network, one account per provider.**")
 
     # Appendix and reproduction
-    doc.h(2, "Appendix: the superseded DeepSeek rows")
-    doc.p("The first DeepSeek runs asked for \"medium\" effort, which DeepSeek does not have, under the 15-minute limit. They are kept for the record and are not used above.")
+    doc.h(2, "Appendix: the superseded DeepSeek V4.1 Flash rows")
+    doc.p("The first DeepSeek V4.1 Flash runs asked for \"medium\" effort, which the model does not have, under the 15-minute limit. They are kept for the record and are not used above.")
     doc.table(*time_cost(early, None), right=(2, 3, 4, 5, 7))
     doc.h(2, "Reproducing it")
     doc.code("docker build -t harness-bench:latest docker/\n"
+             "python3 -m harness_bench pin --suite suites/pilot-v1.json --output runs/pilot-v1-pinned.json   # records task revisions and harness versions\n"
+             "python3 -m harness_bench plan --suite runs/pilot-v1-pinned.json --output runs/pilot-v1-plan.json\n"
              "python3 -m harness_bench check --suite runs/pilot-v1-pinned.json          # tasks, image, versions, logins; no model calls\n"
              "python3 -m harness_bench run --plan runs/pilot-v1-plan.json --repetition 1  # spends your own keys and allowances\n"
              "python3 -m harness_bench report --plan runs/pilot-v1-plan.json --html report.html\n"
              "python3 -m harness_bench judge-prepare --plan runs/pilot-v1-plan.json --task pirate-ship-3d --model gpt-6-1-sol\n"
+             "python3 -m harness_bench rank --folder runs/<plan>/judging/pirate-ship-3d.gpt-6-1-sol --picks <your picks file>\n"
              "python3 scripts/publish_first_pass.py")
+    doc.p("The suite needs your own sign-ins and keys for each harness; see the repository's README. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.")
     doc.h(2, "Data")
     doc.ul(
         "[`data/results.jsonl`](data/results.jsonl): one record per run, with status, checks, seconds, tokens, cost and notes.",
@@ -1049,6 +1163,28 @@ def build():
         "[`results/index.html`](results/index.html): the interactive results page, with every run and its failed checks.",
         "Raw transcripts and the folders each run left are not published; they can hold provider output and login details.")
     return doc, rows, ships, gpt, never_lost
+
+
+def front_page(doc):
+    """Put the report's opening (findings, the at-a-glance tables, the 3D judging, the caveats) on the repository's
+    front page, between its "Key findings" heading and the heading where the description of the tool begins."""
+    titles = [(index, block[2]) for index, block in enumerate(doc.blocks) if block[0] == "h" and block[1] == 2]
+    start = next(index for index, title in titles if title == "Key findings")
+    end = next(index for index, title in titles if title == "Setup")
+    opening = Doc()
+    opening.blocks = doc.blocks[start:end]
+    text = markdown(opening)
+    # From the front page the report's files are two folders down, and a page's source is no use as a link there.
+    text = re.sub(r"\[!\[([^\]]*)\]\((ships/thumbs/[^)]+)\)\]\(ships/[^)]+\)", r"![\1](docs/first-pass/\2)", text)
+    text = re.sub(r"\]\((img|ships|results|data)/", r"](docs/first-pass/\1/", text)
+    text = text.replace("](#what-this-does-not-show)", "](docs/first-pass/README.md#what-this-does-not-show)")
+    text = text.replace("Each picture opens the page itself: drag to move the camera. ", "")
+    text = text.replace(") is further down.", ") is in the report.")
+    text += "\n\n**[Read the full report](docs/first-pass/README.md)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits."
+    readme = ROOT / "README.md"
+    whole = readme.read_text()
+    begin, finish = whole.index("\n## Key findings\n"), whole.index("\n## The benchmark itself\n")
+    readme.write_text(whole[:begin] + "\n" + text + "\n" + whole[finish:])
 
 
 def copy_assets(rows):
@@ -1104,9 +1240,9 @@ def main():
     doc, rows, ships, gpt, never_lost = build()
     def draw():
         return {"time-gpt": time_chart("gpt-6.1-sol: minutes for the nine tasks", rows["gpt-6-1-sol"]),
-                "time-deepseek": time_chart("DeepSeek's API, high effort: minutes for the nine tasks", rows["deepseek-flash-high"]),
+                "time-deepseek": time_chart("DeepSeek V4.1 Flash, high effort: minutes for the nine tasks", rows["deepseek-flash-high"]),
                 "ships-gpt": ship_chart("gpt-6.1-sol ships: pairs won, tied and lost", ships["gpt-6-1-sol"]),
-                "ships-deepseek": ship_chart("DeepSeek ships: pairs won, tied and lost", ships["deepseek-flash-high"]),
+                "ships-deepseek": ship_chart("DeepSeek V4.1 Flash ships: pairs won, tied and lost", ships["deepseek-flash-high"]),
                 "scatter-gpt": scatter(gpt, never_lost=never_lost)}
 
     charts = {}
@@ -1114,19 +1250,21 @@ def main():
         use(theme)
         charts.update({f"{name}{suffix}.svg": content for name, content in draw().items()})
     charts.update({f"{name}-card.svg": on_card(content) for name, content in draw().items()})      # light, the theme last set
+    charts.update({f"board-{key}-card.svg": on_card(board_chart(title, board)) for key, (title, board) in doc.boards.items()})
     charts["card.svg"] = card(gpt, never_lost)
     for name, content in charts.items():
         (OUT / "img" / name).write_text(content)
     if shutil.which("rsvg-convert"):
         subprocess.run(["rsvg-convert", "-w", "1600", str(OUT / "img" / "card.svg"), "-o", str(OUT / "img" / "card.png")], check=True)
     (OUT / "README.md").write_text(markdown(doc) + "\n")
+    front_page(doc)
     (OUT / "index.html").write_text(page(to_html(doc)))
     tidy = lambda r: {k: v for k, v in r.items() if k != "interval"} | {"interval": r["interval"]}
     (OUT / "data" / "summary.json").write_text(json.dumps({
         "plan_id": PLAN["plan_id"], "rows": {model: [tidy(r) for r in rows[model]] for model in rows},
         "ships": {model: {"pairs": s["pairs"], "ties": s["ties"], "tally": s["tally"], "rating": s["rating"]} for model, s in ships.items() if s},
         "allowance": [dict(zip(("plan", "runs", "used", "how_read"), line)) for line in ALLOWANCE]}, indent=2) + "\n")
-    print(f"Wrote {OUT.relative_to(ROOT)}: README.md, index.html, {len(charts)} charts, "
+    print(f"Wrote {OUT.relative_to(ROOT)} and the front page's opening: README.md, index.html, {len(charts)} charts, "
           f"{len(list((OUT / 'ships').glob('*.html'))) - 1} ship pages, results page and data")
 
 

@@ -11,28 +11,17 @@ Runs made 2026-10-07 to 2026-10-08 (UTC) · plan `7d7e5a45591c4afd` · 216 runs,
 - **The harness did not change whether the work got done.** With gpt-6.1-sol at medium effort, all ten harnesses passed all nine tasks: 90 of 90 runs.
 - **It changed the bill.** The same nine tasks took 19 to 40 minutes, 0.64M to 4.15M tokens and $0.75 to $1.57 at list price. Pi was the cheapest and the Codex app the fastest.
 - **The fastest harness was the one that could look at its own work.** The Codex app has a browser tool built in and made its 3D page in 6.7 minutes; the Codex CLI, same model and same maker, took 13.8. The app also ran outside the sandbox, so part of that gap is the setting.
-- **Passing the checks was not the same as being finished.** Every 3D page passed the automatic checks. Judged blind, side by side, five of the ten never lost a pair and two lost eight of nine.
-- **A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek's API the nine tasks cost less in every harness, about half for most (15% to 74% of the gpt-6.1-sol price), and the eight smaller tasks were as fast. But the 3D page took 15 to 60 minutes instead of 7 to 19. Two harnesses were still editing it when stopped at an hour.
+- **Passing the checks was not the same as being finished.** Every 3D page that was judged passed the automatic checks. Judged blind, side by side, five of the ten never lost a pair and two lost eight of nine.
+- **A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek V4.1 Flash, through DeepSeek's API, the nine tasks cost less in every harness whose cost is fully known, about half for most (15% to 74% of the gpt-6.1-sol price), and the eight smaller tasks were as fast. But the 3D page took 15 to 60 minutes instead of 7 to 19. Two harnesses were still editing it when stopped at an hour.
 - **One run each.** Every figure is a single run per harness, model and task. No difference in pass rate is statistically clear, and time and cost can move on a second attempt.
 
 ## Results at a glance
 
-Time is for all nine tasks. Cost is tokens at one list price for every harness, an estimate and not a bill. Tokens are everything the harness reports, cached input included. The last column is the 3D task's blind judging: pairs won, tied and lost. Numbers beside a figure point to the notes under each table.
+One row per harness, best first: tasks passed, then time. The bar is the share of the nine tasks passed, and the thin line across it is the 95% interval for that share, which is wide with nine runs. Time is for all nine tasks. Cost is tokens at one list price for every harness, an estimate and not a bill. The last column is the 3D task's blind judging: pairs won, tied and lost. Small numbers point to the notes under each board.
 
 ### gpt-6.1-sol, medium effort
 
-| Harness | Passed | Time | Cost | Tokens | 3D task, W-T-L |
-|---|---|---:|---|---:|---|
-| Codex app¹ | 9 of 9 | 19 min | $1.29 | 3.15M | 5-4-0 |
-| Pi | 9 of 9 | 23 min | $0.75 | 0.64M | 3-6-0 |
-| DeepSeek Harness | 9 of 9 | 26 min² | $1.13 | 2.43M | 2-5-2 |
-| Devin | 9 of 9 | 26 min³ | $1.57 | 4.15M | 5-4-0 |
-| Codex CLI | 9 of 9 | 27 min | $1.11 | 2.09M | 2-3-4 |
-| Capy¹ | 9 of 9 | 27 min | at least $1.83⁴ | —⁴ | 0-1-8 |
-| OpenCode | 9 of 9 | 29 min | $1.06 | 1.60M | 2-2-5 |
-| Droid | 9 of 9 | 30 min³ | $1.33 | 2.36M | 4-5-0 |
-| Hermes Agent | 9 of 9 | 33 min | $1.41 | 2.95M | 0-1-8 |
-| oh-my-pi | 9 of 9 | 40 min | $1.40 | 2.92M | 4-5-0 |
+![Leaderboard for gpt-6.1-sol, medium effort: 10 harnesses, from Codex app (9 of 9 passed in 19 minutes) down; the same figures are in the detailed results](img/board-gpt-card.svg)
 
 1. Run by hand in its desktop app on a Mac with a GPU, not in the sandbox. Compare its time with the other hand-run app, not with the command-line harnesses.
 2. Timed to its final answer. Its command line then stayed open, idle, about five minutes before exiting; that wait is not counted.
@@ -41,34 +30,24 @@ Time is for all nine tasks. Cost is tokens at one list price for every harness, 
 
 ![Time against cost for the nine tasks on gpt-6.1-sol, one point per harness](img/scatter-gpt-card.svg)
 
-### DeepSeek, high effort
+### DeepSeek V4.1 Flash, high effort
 
-| Harness | Model through | Passed | Time | Cost | Tokens | 3D task, W-T-L |
-|---|---|---|---:|---|---:|---|
-| Pi | DeepSeek's API | 9 of 9 | 34 min | $0.36 | 12.69M | 2-3-1 |
-| Hermes Agent | DeepSeek's API | 9 of 9 | 36 min | $0.61 | 25.09M | 0-0-6 |
-| oh-my-pi | DeepSeek's API | 9 of 9 | 66 min | $0.81 | 28.76M | 2-3-1 |
-| Codex CLI | DeepSeek's API | 9 of 9 | 66 min | $0.81 | 48.80M | 3-2-1 |
-| OpenCode | DeepSeek's API | 8 of 9 | 21 min | $0.15¹ | 7.86M | 1-0-5 |
-| Droid | DeepSeek's API | 8 of 9 | 68 min² | at least $0.13³ | 2.00M³ | 3-2-1 |
-| DeepSeek Harness | DeepSeek's API | 8 of 9 | 70 min² | $0.64 | 30.78M | 4-2-0 |
-| Devin | its own plan⁴ | 8 of 9 | 61 min | $1.84⁵ | 52.93M | —⁶ |
-| Droid | its own plan⁴ | 7 of 9 | 70 min² | at least $0.27³ | 2.93M³ | —⁶ |
+![Leaderboard for DeepSeek V4.1 Flash, high effort: 9 harnesses, from Pi (9 of 9 passed in 34 minutes) down; the same figures are in the detailed results](img/board-deepseek-card.svg)
 
 1. By far the shortest run on this model: OpenCode's 3D page took 15.5 minutes where the others took 26 to 60, so it used far fewer tokens than the other complete runs. That page was judged 6th of 7, and the run passed 8 of 9 tasks.
 2. Still working on the 3D task when stopped at 60 minutes. The page it left passes every automatic check, but the run counts as not passed.
 3. Droid reports usage only when a run ends, so its stopped 3D run has no tokens. Cost and tokens cover the other eight tasks.
-4. The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. The plan's model may not be the same as the API's.
+4. The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. Whether the plan serves the model with the same settings as the API is not visible.
 5. Most of this is the 3D run, which sent 3.0M uncached input tokens.
 6. Judged separately, as a single pair: Droid's page was picked over Devin's.
 
 ## The 3D task, judged blind
 
-One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page passed the ten automatic checks, so one person compared them side by side, 67 pairs in all, without knowing which harness made which. The rule was completeness first (gaps in the ship that the sea shows through), then a little weight for style.
+One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page that was judged passed the ten automatic checks, so one person compared them side by side, 67 pairs in all, without knowing which harness made which. The rule was completeness first (gaps in the ship that the sea shows through), then a little weight for style.
 
 ![Pairs won, tied and lost by each harness's ship on gpt-6.1-sol](img/ships-gpt-card.svg)
 
-![Pairs won, tied and lost by each harness's ship on DeepSeek's API at high effort](img/ships-deepseek-card.svg)
+![Pairs won, tied and lost by each harness's ship on DeepSeek V4.1 Flash at high effort](img/ships-deepseek-card.svg)
 
 | | | |
 |---|---|---|
@@ -77,7 +56,7 @@ One task has no single right answer: a real-time 3D pirate ship at sunset, in on
 | [![Codex CLI · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.codex.jpg)](ships/gpt-6-1-sol.codex.html) Codex CLI · gpt-6.1-sol | [![OpenCode · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.opencode.jpg)](ships/gpt-6-1-sol.opencode.html) OpenCode · gpt-6.1-sol | [![Capy · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.capy.jpg)](ships/gpt-6-1-sol.capy.html) Capy · gpt-6.1-sol |
 | [![Hermes Agent · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.hermes.jpg)](ships/gpt-6-1-sol.hermes.html) Hermes Agent · gpt-6.1-sol |  |  |
 
-The ten gpt-6.1-sol pages, best-judged first. Each picture opens the page itself: drag to move the camera. [All 23 pages](ships/index.html), DeepSeek's included.
+The ten gpt-6.1-sol pages, best-judged first. Each picture opens the page itself: drag to move the camera. [All 23 pages](ships/index.html), the DeepSeek V4.1 Flash ones included.
 
 ## Before quoting a number
 
@@ -123,11 +102,11 @@ The first two of those are HTML pages: GitHub shows their source. Open them from
 | Setting | Model names passed | Effort asked for | Paid through | Harnesses |
 |---|---|---|---|---|
 | gpt-6.1-sol, medium effort | `gpt-6-1-sol-medium`, `gpt-6.1-sol`, `openai-codex/gpt-6.1-sol`, `openai/gpt-6.1-sol` | medium | ChatGPT/Codex subscription; Devin plan (Devin); Factory plan (Droid) | Codex CLI, Pi, oh-my-pi, OpenCode, Hermes Agent, Devin, Droid, Codex app, Capy, DeepSeek Harness |
-| DeepSeek's API, "medium" asked for (superseded) | `deepseek-flash`, `deepseek/deepseek-flash` | medium | DeepSeek API key | Codex CLI, Pi, oh-my-pi, OpenCode, Hermes Agent |
-| DeepSeek's API, high effort | `custom:deepseek-flash-0`, `deepseek-flash`, `deepseek-official/deepseek-flash`, `deepseek/deepseek-flash` | high | DeepSeek API key | Codex CLI, Pi, oh-my-pi, OpenCode, Hermes Agent, Droid, DeepSeek Harness |
+| DeepSeek V4.1 Flash on DeepSeek's API, "medium" asked for (superseded) | `deepseek-flash`, `deepseek/deepseek-flash` | medium | DeepSeek API key | Codex CLI, Pi, oh-my-pi, OpenCode, Hermes Agent |
+| DeepSeek V4.1 Flash on DeepSeek's API, high effort | `custom:deepseek-flash-0`, `deepseek-flash`, `deepseek-official/deepseek-flash`, `deepseek/deepseek-flash` | high | DeepSeek API key | Codex CLI, Pi, oh-my-pi, OpenCode, Hermes Agent, Droid, DeepSeek Harness |
 | DeepSeek V4.1 Flash as hosted by the harness's plan, high effort | `deepseek-v4-1-flash-high`, `deepseek-v4.1-flash` | high | Devin plan (Devin); Factory plan (Droid) | Devin, Droid |
 
-All subscriptions were the $20 tier of each plan. Effort is what each harness was asked for; it could not be confirmed from the results.
+All subscriptions were the $20 tier of each plan. Effort is what each harness was asked for; it could not be confirmed from the results. DeepSeek's API takes its model as `deepseek-flash`; DeepSeek's own harness lists that id as DeepSeek V4.1 Flash.
 
 ### Tasks
 
@@ -163,15 +142,15 @@ The same results in full, in the order of this project's [write-up template](htt
 | Model setting | Harnesses | Best minus worst pass rate | p-value |
 |---|---:|---:|---:|
 | gpt-6.1-sol, medium effort | 10 | 0 points | 1.000 |
-| DeepSeek's API, "medium" asked for (superseded) | 5 | 0 points | 1.000 |
-| DeepSeek's API, high effort | 7 | 11 points | 1.000 |
+| DeepSeek V4.1 Flash on DeepSeek's API, "medium" asked for (superseded) | 5 | 0 points | 1.000 |
+| DeepSeek V4.1 Flash on DeepSeek's API, high effort | 7 | 11 points | 1.000 |
 | DeepSeek V4.1 Flash as hosted by the harness's plan, high effort | 2 | 11 points | 1.000 |
 
 No. A permutation test per model (outcomes shuffled among harnesses within each task) finds nothing: every p-value is 1. Of 77 head-to-head comparisons on the same model, 0 are clear. Everything after this point is about time, cost and the look of one task, not about which harness is more often right.
 
 ### 2. Pass rate with intervals
 
-| Harness | gpt-6.1-sol | DeepSeek API, high | DeepSeek on its plan |
+| Harness | gpt-6.1-sol | DeepSeek V4.1 Flash, API | DeepSeek V4.1 Flash, on its plan |
 |---|---|---|---|
 | Codex app | 9 of 9 | not run | not run |
 | Pi | 9 of 9 | 9 of 9 | not run |
@@ -227,9 +206,9 @@ Tokens and steps are each harness's own report for the nine tasks. A dash means 
 - **Capy** reports no tokens per run. Its cost is the dollar figure on its own usage page.
 - **DeepSeek Harness** is timed to its final answer. Its command line then stayed open about five minutes before exiting; that wait is kept in the data as `process_seconds`.
 
-### 4. DeepSeek's API, high effort
+### 4. DeepSeek V4.1 Flash on DeepSeek's API, high effort
 
-![Minutes for the nine tasks on DeepSeek's API at high effort](img/time-deepseek-card.svg)
+![Minutes for the nine tasks on DeepSeek V4.1 Flash at high effort](img/time-deepseek-card.svg)
 
 | Harness | Passed | All nine | Eight smaller | Ship | Median task | Cost | Per pass | Ship W-T-L |
 |---|---|---:|---:|---:|---:|---|---:|---|
@@ -251,7 +230,7 @@ Tokens and steps are each harness's own report for the nine tasks. A dash means 
 | Droid | 0.05M (8 of 9) | 1.86M (8 of 9) | 0.09M (8 of 9) | 2.00M (8 of 9) | 100 (8 of 9) | — |
 | DeepSeek Harness | 0.12M | 30.31M | 0.35M | 30.78M | 257 | 327 |
 
-- **Cheaper in every harness.** Pi $0.36 against $0.75; Hermes Agent $0.61 against $1.41; oh-my-pi $0.81 against $1.40; Codex CLI $0.81 against $1.11; OpenCode $0.15 against $1.06; DeepSeek Harness $0.64 against $1.13.
+- **Cheaper in every harness whose cost is fully known.** Pi $0.36 against $0.75; Hermes Agent $0.61 against $1.41; oh-my-pi $0.81 against $1.40; Codex CLI $0.81 against $1.11; OpenCode $0.15 against $1.06; DeepSeek Harness $0.64 against $1.13.
 - **The extra time is the ship.** The eight smaller tasks took 6 to 15 minutes in total, against 11 to 28 on gpt-6.1-sol.
 - **Two runs never stopped by themselves.** Droid and DeepSeek Harness were still editing their ships at the 60-minute stop. The pages they left pass every automatic check.
 - **Far more tokens, mostly cached.** Long runs re-read their own history on every call.
@@ -268,7 +247,7 @@ Tokens and steps are each harness's own report for the nine tasks. A dash means 
 | Devin | 3.58M | 48.96M | 0.39M | 52.93M | 326 | 369 |
 | Droid | 0.38M (8 of 9) | 2.43M (8 of 9) | 0.12M (8 of 9) | 2.93M (8 of 9) | 123 (8 of 9) | — |
 
-Only Devin and Droid offer this route. Droid also ran on DeepSeek's own API (section 4): 8 of 9 there, 7 of 9 here. The plans' model and the API's `deepseek-flash` may not be the same model.
+Only Devin and Droid offer this route. Droid also ran on DeepSeek's own API (section 4): 8 of 9 there, 7 of 9 here. DeepSeek's own harness lists the API's `deepseek-flash` as DeepSeek V4.1 Flash, the name both plans use; whether a plan serves it with the same settings is not visible.
 
 ### 6. By task
 
@@ -289,7 +268,7 @@ Seconds per task, with the tasks in the order of the task table above. ✗ marks
 | Hermes Agent | 101 | 124 | 162 | 173 | 247 | 176 | 105 | 168 | 721 |
 | oh-my-pi | 239 | 101 | 127 | 100 | 311 | 354 | 270 | 177 | 708 |
 
-#### DeepSeek's API, high effort
+#### DeepSeek V4.1 Flash on DeepSeek's API
 
 | Harness | md | kanban | expenses | checkout | bookmarks | todo | tabs | log | ship |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -320,7 +299,7 @@ Dollars per task at list price. `*` marks a harness's own figure and `?` an unkn
 | Hermes Agent | 0.082 | 0.118 | 0.141 | 0.122 | 0.122 | 0.134 | 0.121 | 0.161 | 0.411 |
 | oh-my-pi | 0.097 | 0.121 | 0.112 | 0.092 | 0.176 | 0.189 | 0.153 | 0.158 | 0.306 |
 
-#### DeepSeek's API, high effort: cost per task
+#### DeepSeek V4.1 Flash on DeepSeek's API: cost per task
 
 | Harness | md | kanban | expenses | checkout | bookmarks | todo | tabs | log | ship |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -332,27 +311,27 @@ Dollars per task at list price. `*` marks a harness's own figure and `?` an unkn
 | Droid | 0.016 | 0.008 | 0.012 | 0.007 | 0.015 | 0.026 | 0.025 | 0.018 | ? |
 | DeepSeek Harness | 0.021 | 0.009 | 0.025 | 0.009 | 0.028 | 0.023 | 0.030 | 0.031 | 0.461 |
 
-#### Plan-hosted DeepSeek: seconds per task
+#### DeepSeek V4.1 Flash on a plan: seconds per task
 
 | Harness | md | kanban | expenses | checkout | bookmarks | todo | tabs | log | ship |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Devin | 25 | 22 | 29 | 28 | 39 | 84 ✗ | 46 | 57 | 3357 |
 | Droid | 77 | 24 | 53 ✗ | 36 | 57 | 156 | 86 | 99 | 3601 ■ |
 
-On gpt-6.1-sol the pirate ship is 42% of all time spent; on DeepSeek's API it is 82%. One task drives most of the time differences.
+On gpt-6.1-sol the pirate ship is 42% of all time spent; on DeepSeek V4.1 Flash it is 82%. One task drives most of the time differences.
 
 ### 7. What tripped them up
 
 | Harness | Model setting | Task | Checks passed | The check that failed, or why the run did not pass |
 |---|---|---|---|---|
-| OpenCode | DeepSeek's API, high effort | `log-report` | 15 of 16 | an unreadable --since or --until ends with exit code 2 |
-| Droid | DeepSeek's API, high effort | `pirate-ship-3d` | 10 of 10 | still working when stopped at 60 minutes; the page as left passes 10 of 10 checks |
-| DeepSeek Harness | DeepSeek's API, high effort | `pirate-ship-3d` | 10 of 10 | still working when stopped at 60 minutes; the page as left passes 10 of 10 checks |
+| OpenCode | DeepSeek V4.1 Flash on DeepSeek's API, high effort | `log-report` | 15 of 16 | an unreadable --since or --until ends with exit code 2 |
+| Droid | DeepSeek V4.1 Flash on DeepSeek's API, high effort | `pirate-ship-3d` | 10 of 10 | still working when stopped at 60 minutes; the page as left passes 10 of 10 checks |
+| DeepSeek Harness | DeepSeek V4.1 Flash on DeepSeek's API, high effort | `pirate-ship-3d` | 10 of 10 | still working when stopped at 60 minutes; the page as left passes 10 of 10 checks |
 | Devin | DeepSeek V4.1 Flash as hosted by the harness's plan, high effort | `todo-app` | 20 of 22 | the Active filter shows only to-dos that are not done; the Done filter shows only done to-dos |
 | Droid | DeepSeek V4.1 Flash as hosted by the harness's plan, high effort | `expenses-csv` | 16 of 17 | export then import returns the same expenses |
 | Droid | DeepSeek V4.1 Flash as hosted by the harness's plan, high effort | `pirate-ship-3d` | 10 of 10 | still working when stopped at 60 minutes; the page as left passes 10 of 10 checks |
 
-Every run that did not pass is on a DeepSeek route. Three runs failed four checks between them. Each failed check tests one behaviour the prompt states, and each was failed by one harness only on that model setting.
+Every run that did not pass is on DeepSeek V4.1 Flash. Three runs failed four checks between them. Each failed check tests one behaviour the prompt states, and each was failed by one harness only on that model setting.
 
 ### 8. Blocked and ungraded runs
 
@@ -394,7 +373,7 @@ Each row against each column: W won, T tied, L lost.
 | Capy | L | L | L | L | L | L | L | L | · | T |
 | Hermes Agent | L | L | L | L | L | L | L | L | T | · |
 
-#### DeepSeek's API, high effort: 21 pairs
+#### DeepSeek V4.1 Flash on DeepSeek's API: 21 pairs
 
 | Rank | Harness | Won | Tied | Lost | Rating | 95% interval | Ship time | Ship cost |
 |---:|---|---:|---:|---:|---:|---|---:|---:|
@@ -406,7 +385,7 @@ Each row against each column: W won, T tied, L lost.
 | 6 | OpenCode | 1 | 0 | 5 | 1262 | 1089 to 1423 | 15.5 min | $0.10 |
 | 7 | Hermes Agent | 0 | 0 | 6 | 1063 | 955 to 1291 | 25.8 min | $0.45 |
 
-**Who beat whom on DeepSeek's API, high effort**
+**Who beat whom on DeepSeek V4.1 Flash on DeepSeek's API**
 
 Each row against each column: W won, T tied, L lost.
 
@@ -420,13 +399,13 @@ Each row against each column: W won, T tied, L lost.
 | OpenCode | L | L | L | L | L | · | W |
 | Hermes Agent | L | L | L | L | L | L | · |
 
-#### Plan-hosted DeepSeek: 1 pair
+#### DeepSeek V4.1 Flash on a plan: 1 pair
 
 Droid's page was picked over Devin's. The judge's note: the other had the better style but a hole at the back of the ship.
 
 - **Ratings** are Bradley-Terry strengths on an Elo-style scale (1500 is average). Intervals come from resampling the picks; where they overlap the order is not settled.
 - **On gpt-6.1-sol** the five pages that never lost (Codex app, Devin, Droid, oh-my-pi, Pi) cannot be told apart. Capy's and Hermes Agent's are clearly below the rest.
-- **On DeepSeek** the top five overlap; OpenCode's and Hermes Agent's are clearly below. The two top-ranked pages come from runs that were stopped at 60 minutes, so they had the most time.
+- **On DeepSeek V4.1 Flash** the top five overlap; OpenCode's and Hermes Agent's are clearly below. The two top-ranked pages come from runs that were stopped at 60 minutes, so they had the most time.
 - **No second judge**, so there is no measure of agreement. A model judge was not used.
 
 #### Every ship
@@ -436,11 +415,11 @@ Droid's page was picked over Devin's. The judge's note: the other had the better
 | [![Capy · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.capy.jpg)](ships/gpt-6-1-sol.capy.html) Capy · gpt-6.1-sol | [![Codex CLI · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.codex.jpg)](ships/gpt-6-1-sol.codex.html) Codex CLI · gpt-6.1-sol | [![Codex app · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.codex-app.jpg)](ships/gpt-6-1-sol.codex-app.html) Codex app · gpt-6.1-sol |
 | [![DeepSeek Harness · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.deepseek-harness.jpg)](ships/gpt-6-1-sol.deepseek-harness.html) DeepSeek Harness · gpt-6.1-sol | [![Devin · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.devin.jpg)](ships/gpt-6-1-sol.devin.html) Devin · gpt-6.1-sol | [![Droid · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.droid.jpg)](ships/gpt-6-1-sol.droid.html) Droid · gpt-6.1-sol |
 | [![Hermes Agent · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.hermes.jpg)](ships/gpt-6-1-sol.hermes.html) Hermes Agent · gpt-6.1-sol | [![OpenCode · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.opencode.jpg)](ships/gpt-6-1-sol.opencode.html) OpenCode · gpt-6.1-sol | [![Pi · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.pi.jpg)](ships/gpt-6-1-sol.pi.html) Pi · gpt-6.1-sol |
-| [![oh-my-pi · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.omp.jpg)](ships/gpt-6-1-sol.omp.html) oh-my-pi · gpt-6.1-sol | [![Codex CLI · DeepSeek API, high](ships/thumbs/deepseek-flash-high.codex.jpg)](ships/deepseek-flash-high.codex.html) Codex CLI · DeepSeek API, high | [![DeepSeek Harness · DeepSeek API, high (stopped at 60 min)](ships/thumbs/deepseek-flash-high.deepseek-harness.jpg)](ships/deepseek-flash-high.deepseek-harness.html) DeepSeek Harness · DeepSeek API, high (stopped at 60 min) |
-| [![Droid · DeepSeek API, high (stopped at 60 min)](ships/thumbs/deepseek-flash-high.droid.jpg)](ships/deepseek-flash-high.droid.html) Droid · DeepSeek API, high (stopped at 60 min) | [![Hermes Agent · DeepSeek API, high](ships/thumbs/deepseek-flash-high.hermes.jpg)](ships/deepseek-flash-high.hermes.html) Hermes Agent · DeepSeek API, high | [![OpenCode · DeepSeek API, high](ships/thumbs/deepseek-flash-high.opencode.jpg)](ships/deepseek-flash-high.opencode.html) OpenCode · DeepSeek API, high |
-| [![Pi · DeepSeek API, high](ships/thumbs/deepseek-flash-high.pi.jpg)](ships/deepseek-flash-high.pi.html) Pi · DeepSeek API, high | [![oh-my-pi · DeepSeek API, high](ships/thumbs/deepseek-flash-high.omp.jpg)](ships/deepseek-flash-high.omp.html) oh-my-pi · DeepSeek API, high | [![Devin · DeepSeek on its plan](ships/thumbs/deepseek-v4-1-flash-plan.devin.jpg)](ships/deepseek-v4-1-flash-plan.devin.html) Devin · DeepSeek on its plan |
-| [![Droid · DeepSeek on its plan (stopped at 60 min)](ships/thumbs/deepseek-v4-1-flash-plan.droid.jpg)](ships/deepseek-v4-1-flash-plan.droid.html) Droid · DeepSeek on its plan (stopped at 60 min) | [![Hermes Agent · DeepSeek API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.hermes.jpg)](ships/deepseek-flash.hermes.html) Hermes Agent · DeepSeek API, earlier run (stopped at 15 min) | [![OpenCode · DeepSeek API, earlier run](ships/thumbs/deepseek-flash.opencode.jpg)](ships/deepseek-flash.opencode.html) OpenCode · DeepSeek API, earlier run |
-| [![Pi · DeepSeek API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.pi.jpg)](ships/deepseek-flash.pi.html) Pi · DeepSeek API, earlier run (stopped at 15 min) | [![oh-my-pi · DeepSeek API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.omp.jpg)](ships/deepseek-flash.omp.html) oh-my-pi · DeepSeek API, earlier run (stopped at 15 min) |  |
+| [![oh-my-pi · gpt-6.1-sol](ships/thumbs/gpt-6-1-sol.omp.jpg)](ships/gpt-6-1-sol.omp.html) oh-my-pi · gpt-6.1-sol | [![Codex CLI · DeepSeek V4.1 Flash, API](ships/thumbs/deepseek-flash-high.codex.jpg)](ships/deepseek-flash-high.codex.html) Codex CLI · DeepSeek V4.1 Flash, API | [![DeepSeek Harness · DeepSeek V4.1 Flash, API (stopped at 60 min)](ships/thumbs/deepseek-flash-high.deepseek-harness.jpg)](ships/deepseek-flash-high.deepseek-harness.html) DeepSeek Harness · DeepSeek V4.1 Flash, API (stopped at 60 min) |
+| [![Droid · DeepSeek V4.1 Flash, API (stopped at 60 min)](ships/thumbs/deepseek-flash-high.droid.jpg)](ships/deepseek-flash-high.droid.html) Droid · DeepSeek V4.1 Flash, API (stopped at 60 min) | [![Hermes Agent · DeepSeek V4.1 Flash, API](ships/thumbs/deepseek-flash-high.hermes.jpg)](ships/deepseek-flash-high.hermes.html) Hermes Agent · DeepSeek V4.1 Flash, API | [![OpenCode · DeepSeek V4.1 Flash, API](ships/thumbs/deepseek-flash-high.opencode.jpg)](ships/deepseek-flash-high.opencode.html) OpenCode · DeepSeek V4.1 Flash, API |
+| [![Pi · DeepSeek V4.1 Flash, API](ships/thumbs/deepseek-flash-high.pi.jpg)](ships/deepseek-flash-high.pi.html) Pi · DeepSeek V4.1 Flash, API | [![oh-my-pi · DeepSeek V4.1 Flash, API](ships/thumbs/deepseek-flash-high.omp.jpg)](ships/deepseek-flash-high.omp.html) oh-my-pi · DeepSeek V4.1 Flash, API | [![Devin · DeepSeek V4.1 Flash, on its plan](ships/thumbs/deepseek-v4-1-flash-plan.devin.jpg)](ships/deepseek-v4-1-flash-plan.devin.html) Devin · DeepSeek V4.1 Flash, on its plan |
+| [![Droid · DeepSeek V4.1 Flash, on its plan (stopped at 60 min)](ships/thumbs/deepseek-v4-1-flash-plan.droid.jpg)](ships/deepseek-v4-1-flash-plan.droid.html) Droid · DeepSeek V4.1 Flash, on its plan (stopped at 60 min) | [![Hermes Agent · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.hermes.jpg)](ships/deepseek-flash.hermes.html) Hermes Agent · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min) | [![OpenCode · DeepSeek V4.1 Flash, API, earlier run](ships/thumbs/deepseek-flash.opencode.jpg)](ships/deepseek-flash.opencode.html) OpenCode · DeepSeek V4.1 Flash, API, earlier run |
+| [![Pi · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.pi.jpg)](ships/deepseek-flash.pi.html) Pi · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min) | [![oh-my-pi · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min)](ships/thumbs/deepseek-flash.omp.jpg)](ships/deepseek-flash.omp.html) oh-my-pi · DeepSeek V4.1 Flash, API, earlier run (stopped at 15 min) |  |
 
 Each picture opens the page itself: drag to move the camera. [All of them on one page](ships/index.html).
 
@@ -456,7 +435,7 @@ Not run. Every run used each harness's ordinary single-agent mode.
 | ChatGPT/Codex subscription | Capy, nine tasks | 20 points of the 5-hour limit; 3 of the weekly limit | read after each task; one more point went on an attempt that stalled and was run again |
 | ChatGPT/Codex subscription | DeepSeek Harness, nine tasks | 12 points of the 5-hour limit; 2 of the weekly limit | 0% before, 12% after, in a fresh window |
 | Devin plan | Devin, nine gpt-6.1-sol tasks and one attempt cut off at 15 minutes | about 11 points of the daily limit; 5 of the weekly limit | first reading came four minutes after the first run started |
-| Factory plan | Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek tasks | about 3 points of the weekly limit | one reading, after all of them |
+| Factory plan | Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek V4.1 Flash tasks | about 3 points of the weekly limit | one reading, after all of them |
 
 These are whole percentage points from the providers' own meters, mostly single before-and-after readings. They are rough, and the plans' windows differ (5 hours, a day, a week), so they do not convert into one another.
 
@@ -482,8 +461,8 @@ These are whole percentage points from the providers' own meters, mostly single 
 - **Software rendering.** In the container a 3D page is drawn without a GPU, and a harness that wanted to look at its page had to install its own tooling first.
 - **Hand-run times come from each app's own record** (the Codex app's session logs, Capy's "Worked for" timers), not from the runner's clock.
 - **Three routes to one model.** gpt-6.1-sol was reached through the ChatGPT/Codex subscription, Devin's plan and Factory's plan. What each provider sets on its side is not visible.
-- **Effort is what was asked for.** DeepSeek has no "medium" level; the first DeepSeek rows asked for it and ran at an unknown effort, so they were run again at high and are kept only in the appendix.
-- **The API's `deepseek-flash` and the plans' DeepSeek V4.1 Flash may be different models.**
+- **Effort is what was asked for.** DeepSeek V4.1 Flash has no "medium" level; the first rows on it asked for it and ran at an unknown effort, so they were run again at high and are kept only in the appendix.
+- **One model name, two routes.** DeepSeek's API takes the model as `deepseek-flash`, which DeepSeek's own harness lists as DeepSeek V4.1 Flash; the Devin and Factory plans use that name for theirs. Whether a plan serves it with the same settings as the API is not visible.
 - **Each harness's own system prompt, tools and defaults are part of what is measured.** Only the model and effort were matched.
 - **Second attempts.** Devin's and Droid's gpt-6.1-sol ships and Capy's `log-report` are second attempts; the first attempts' tokens are not counted.
 - **The time limit changed during the study,** from 15 to 60 minutes.
@@ -495,7 +474,7 @@ These are whole percentage points from the providers' own meters, mostly single 
 - **Cost is an estimate, not a bill.** It is tokens multiplied by one price list that has not been checked against the providers' pages.
 - **Token counts are each harness's own report,** read by a separate parser per harness. Definitions can differ, for example in whether reasoning is counted as output.
 - **Capy reports no tokens per run.** Its cost is its own dollar figure, and one task's share was worked out from its usage total, so it is a floor.
-- **Droid reports usage only when a run ends.** Its two stopped ships have no tokens, so its DeepSeek costs are floors.
+- **Droid reports usage only when a run ends.** Its two stopped ships have no tokens, so its DeepSeek V4.1 Flash costs are floors.
 - **Allowance readings are rough:** whole points, single readings, and some cover mixed runs.
 
 ### Judging
@@ -503,7 +482,7 @@ These are whole percentage points from the providers' own meters, mostly single 
 - **One judge, one page per harness and model.** Another attempt by the same harness could look different, and another judge could choose differently.
 - **The rule favours completeness.** It separates flawed pages from clean ones and does not rank the clean ones against each other.
 - **The judge saw the pages running in a desktop browser with a GPU,** not in the software-rendered setting the automatic checks used.
-- **Three judged DeepSeek pages come from runs stopped at the time limit.**
+- **Three judged DeepSeek V4.1 Flash pages come from runs stopped at the time limit.**
 - **Blindness covers file names and the judging page.** A page could in principle identify its maker on screen; none was seen to.
 
 ### Scope and age
@@ -512,9 +491,9 @@ These are whole percentage points from the providers' own meters, mostly single 
 - **Versions are those of early October 2026.** Harnesses and models change behind the same names; these numbers will age.
 - **One machine, one network, one account per provider.**
 
-## Appendix: the superseded DeepSeek rows
+## Appendix: the superseded DeepSeek V4.1 Flash rows
 
-The first DeepSeek runs asked for "medium" effort, which DeepSeek does not have, under the 15-minute limit. They are kept for the record and are not used above.
+The first DeepSeek V4.1 Flash runs asked for "medium" effort, which the model does not have, under the 15-minute limit. They are kept for the record and are not used above.
 
 | Harness | Passed | All nine | Eight smaller | Ship | Median task | Cost | Per pass |
 |---|---|---:|---:|---:|---:|---|---:|
@@ -528,12 +507,17 @@ The first DeepSeek runs asked for "medium" effort, which DeepSeek does not have,
 
 ```sh
 docker build -t harness-bench:latest docker/
+python3 -m harness_bench pin --suite suites/pilot-v1.json --output runs/pilot-v1-pinned.json   # records task revisions and harness versions
+python3 -m harness_bench plan --suite runs/pilot-v1-pinned.json --output runs/pilot-v1-plan.json
 python3 -m harness_bench check --suite runs/pilot-v1-pinned.json          # tasks, image, versions, logins; no model calls
 python3 -m harness_bench run --plan runs/pilot-v1-plan.json --repetition 1  # spends your own keys and allowances
 python3 -m harness_bench report --plan runs/pilot-v1-plan.json --html report.html
 python3 -m harness_bench judge-prepare --plan runs/pilot-v1-plan.json --task pirate-ship-3d --model gpt-6-1-sol
+python3 -m harness_bench rank --folder runs/<plan>/judging/pirate-ship-3d.gpt-6-1-sol --picks <your picks file>
 python3 scripts/publish_first_pass.py
 ```
+
+The suite needs your own sign-ins and keys for each harness; see the repository's README. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.
 
 ## Data
 

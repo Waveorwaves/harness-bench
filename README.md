@@ -4,24 +4,74 @@ Does the coding harness matter, or only the model? Harness Bench runs the same t
 
 > **Status (2026-10-08): a first pass has been run.** Ten harnesses, nine tasks, one run each (216 runs). Read the [first-pass report](docs/first-pass/README.md) with its limits before quoting any number: with one run per cell, no difference in pass rate is statistically clear. Repeats two and three of the plan have not been run.
 
-## First pass, in one table
+## Key findings
 
-gpt-6.1-sol at medium effort, nine tasks, one run per harness and task:
+- **The harness did not change whether the work got done.** With gpt-6.1-sol at medium effort, all ten harnesses passed all nine tasks: 90 of 90 runs.
+- **It changed the bill.** The same nine tasks took 19 to 40 minutes, 0.64M to 4.15M tokens and $0.75 to $1.57 at list price. Pi was the cheapest and the Codex app the fastest.
+- **The fastest harness was the one that could look at its own work.** The Codex app has a browser tool built in and made its 3D page in 6.7 minutes; the Codex CLI, same model and same maker, took 13.8. The app also ran outside the sandbox, so part of that gap is the setting.
+- **Passing the checks was not the same as being finished.** Every 3D page that was judged passed the automatic checks. Judged blind, side by side, five of the ten never lost a pair and two lost eight of nine.
+- **A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek V4.1 Flash, through DeepSeek's API, the nine tasks cost less in every harness whose cost is fully known, about half for most (15% to 74% of the gpt-6.1-sol price), and the eight smaller tasks were as fast. But the 3D page took 15 to 60 minutes instead of 7 to 19. Two harnesses were still editing it when stopped at an hour.
+- **One run each.** Every figure is a single run per harness, model and task. No difference in pass rate is statistically clear, and time and cost can move on a second attempt.
 
-| Harness | Passed | Time | Cost | Tokens | 3D task, W-T-L |
-|---|---|---:|---|---:|---|
-| Codex app | 9 of 9 | 19 min | $1.29 | 3.15M | 5-4-0 |
-| Pi | 9 of 9 | 23 min | $0.75 | 0.64M | 3-6-0 |
-| DeepSeek Harness | 9 of 9 | 26 min | $1.13 | 2.43M | 2-5-2 |
-| Devin | 9 of 9 | 26 min | $1.57 | 4.15M | 5-4-0 |
-| Codex CLI | 9 of 9 | 27 min | $1.11 | 2.09M | 2-3-4 |
-| Capy | 9 of 9 | 27 min | at least $1.83 (own figure) | — | 0-1-8 |
-| OpenCode | 9 of 9 | 29 min | $1.06 | 1.60M | 2-2-5 |
-| Droid | 9 of 9 | 30 min | $1.33 | 2.36M | 4-5-0 |
-| Hermes Agent | 9 of 9 | 33 min | $1.41 | 2.95M | 0-1-8 |
-| oh-my-pi | 9 of 9 | 40 min | $1.40 | 2.92M | 4-5-0 |
+## Results at a glance
 
-All ten passed all nine, so the differences are time, cost, tokens and how the one open-ended 3D task looked to a single blind judge (pairs won, tied and lost). Cost is tokens at one list price, an estimate and not a bill. The Codex app and Capy were run by hand on a Mac; the others ran headless in a container, so compare times within each group. DeepSeek results, per-task figures, token counts, every 3D page and the full list of limits are in the [report](docs/first-pass/README.md); the [data](docs/first-pass/data) is alongside.
+One row per harness, best first: tasks passed, then time. The bar is the share of the nine tasks passed, and the thin line across it is the 95% interval for that share, which is wide with nine runs. Time is for all nine tasks. Cost is tokens at one list price for every harness, an estimate and not a bill. The last column is the 3D task's blind judging: pairs won, tied and lost. Small numbers point to the notes under each board.
+
+### gpt-6.1-sol, medium effort
+
+![Leaderboard for gpt-6.1-sol, medium effort: 10 harnesses, from Codex app (9 of 9 passed in 19 minutes) down; the same figures are in the detailed results](docs/first-pass/img/board-gpt-card.svg)
+
+1. Run by hand in its desktop app on a Mac with a GPU, not in the sandbox. Compare its time with the other hand-run app, not with the command-line harnesses.
+2. Timed to its final answer. Its command line then stayed open, idle, about five minutes before exiting; that wait is not counted.
+3. The 3D task is a second attempt. The first was cut off at an earlier 15-minute limit while still working, and its tokens are not counted.
+4. Capy reports dollars, not tokens. This is its own figure, with one task's share worked out from its usage total, so the true cost is this or a little more.
+
+![Time against cost for the nine tasks on gpt-6.1-sol, one point per harness](docs/first-pass/img/scatter-gpt-card.svg)
+
+### DeepSeek V4.1 Flash, high effort
+
+![Leaderboard for DeepSeek V4.1 Flash, high effort: 9 harnesses, from Pi (9 of 9 passed in 34 minutes) down; the same figures are in the detailed results](docs/first-pass/img/board-deepseek-card.svg)
+
+1. By far the shortest run on this model: OpenCode's 3D page took 15.5 minutes where the others took 26 to 60, so it used far fewer tokens than the other complete runs. That page was judged 6th of 7, and the run passed 8 of 9 tasks.
+2. Still working on the 3D task when stopped at 60 minutes. The page it left passes every automatic check, but the run counts as not passed.
+3. Droid reports usage only when a run ends, so its stopped 3D run has no tokens. Cost and tokens cover the other eight tasks.
+4. The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. Whether the plan serves the model with the same settings as the API is not visible.
+5. Most of this is the 3D run, which sent 3.0M uncached input tokens.
+6. Judged separately, as a single pair: Droid's page was picked over Devin's.
+
+## The 3D task, judged blind
+
+One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page that was judged passed the ten automatic checks, so one person compared them side by side, 67 pairs in all, without knowing which harness made which. The rule was completeness first (gaps in the ship that the sea shows through), then a little weight for style.
+
+![Pairs won, tied and lost by each harness's ship on gpt-6.1-sol](docs/first-pass/img/ships-gpt-card.svg)
+
+![Pairs won, tied and lost by each harness's ship on DeepSeek V4.1 Flash at high effort](docs/first-pass/img/ships-deepseek-card.svg)
+
+| | | |
+|---|---|---|
+| ![Codex app · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex-app.jpg) Codex app · gpt-6.1-sol | ![Devin · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.devin.jpg) Devin · gpt-6.1-sol | ![Droid · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.droid.jpg) Droid · gpt-6.1-sol |
+| ![oh-my-pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.omp.jpg) oh-my-pi · gpt-6.1-sol | ![Pi · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.pi.jpg) Pi · gpt-6.1-sol | ![DeepSeek Harness · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.deepseek-harness.jpg) DeepSeek Harness · gpt-6.1-sol |
+| ![Codex CLI · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.codex.jpg) Codex CLI · gpt-6.1-sol | ![OpenCode · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.opencode.jpg) OpenCode · gpt-6.1-sol | ![Capy · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.capy.jpg) Capy · gpt-6.1-sol |
+| ![Hermes Agent · gpt-6.1-sol](docs/first-pass/ships/thumbs/gpt-6-1-sol.hermes.jpg) Hermes Agent · gpt-6.1-sol |  |  |
+
+The ten gpt-6.1-sol pages, best-judged first. [All 23 pages](docs/first-pass/ships/index.html), the DeepSeek V4.1 Flash ones included.
+
+## Before quoting a number
+
+- **One run per harness, model and task.** The plan has three repeats and one was run, so nothing here measures run-to-run variation.
+- **Two settings.** The Codex app and Capy ran by hand on a Mac with a GPU. The other eight ran headless in a container without one. Compare times within a group.
+- **Cost is an estimate** from tokens and one price list, not what anyone was billed. Runs on a subscription cost allowance, not dollars.
+- **One judge** for the 3D task, and one page per harness and model.
+- **Not in this pass:** Claude Code, Cursor and others; repeats two and three of the plan; any mode with subagents.
+- **Made with an AI assistant.** The tasks, the benchmark and this write-up were produced with Claude Code, which is not among the harnesses compared.
+
+The [full list of limits](docs/first-pass/README.md#what-this-does-not-show) is in the report. To explore: [interactive results](docs/first-pass/results/index.html) · [every ship, running](docs/first-pass/ships/index.html) · [data](https://github.com/Waveorwaves/harness-bench/tree/main/docs/first-pass/data).
+
+The first two of those are HTML pages: GitHub shows their source. Open them from a clone (`docs/first-pass/index.html`) or through GitHub Pages if it is switched on for this repository.
+
+**[Read the full report](docs/first-pass/README.md)** for the setup, per-task figures, token breakdowns, every failed check, the judging tables and all the limits.
+
+## The benchmark itself
 
 The picture and the demo pages below come from fake agents and stored sample solutions, to show the pipeline; they are not results.
 

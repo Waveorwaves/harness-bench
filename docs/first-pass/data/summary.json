@@ -1213,7 +1213,7 @@
     },
     {
       "plan": "Factory plan",
-      "runs": "Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek tasks",
+      "runs": "Droid, nine gpt-6.1-sol tasks, one attempt cut off at 15 minutes and nine plan-hosted DeepSeek V4.1 Flash tasks",
       "used": "about 3 points of the weekly limit",
       "how_read": "one reading, after all of them"
     }
