@@ -429,7 +429,11 @@ class PipelineTests(unittest.TestCase):
 
     def test_real_harness_refused_without_isolation(self):
         self.suite["harnesses"].append({"id": "codex", "adapter": "codex", "version": "x"})
-        plan = make_plan(runner.pin(self.suite, self.root, self.box) | {})
+        pinned = runner.pin(self.suite, self.root, self.box)
+        for harness in pinned["harnesses"]:
+            # Where the harness is not installed (a CI machine) its version cannot be read; the refusal must not depend on that.
+            harness["version"] = harness["version"] or "not installed here"
+        plan = make_plan(pinned)
         with self.assertRaisesRegex(ValueError, "no isolation"):
             runner.execute(plan, self.root, self.box)
 

@@ -403,38 +403,85 @@ def ship_chart(title, result):
                 note="Each ship met every other ship once. One judge, blind, completeness first.")
 
 
-def scatter(rows, width=860, height=520, title="gpt-6.1-sol: nine tasks, every harness passed all nine", never_lost=(), pad=0):
+def scatter(rows, title, key, colour, x_ticks, y_ticks, nudge, suffix=lambda r: "", notes=None, width=860, height=520, pad=0, diamond=(), nudge_diamond=None):
+    """Minutes against list-price cost, one point per harness. A point is hollow where its cost is a floor;
+    `notes` puts a second line under a harness's label, on a tag; rows in `diamond` are drawn as diamonds."""
     left, right, top, bottom = 60 + pad, 24 + pad, 92 + pad, 58 + pad
     xs = [r["seconds"] / 60 for r in rows]
-    ys = [r["list_usd"] if r["list_known"] == r["runs"] else r["own_usd"] for r in rows]
-    x0, x1 = 15, 45
-    y0, y1 = 0.5, 2.0
+    ys = [r["list_usd"] if r["list_known"] else r["own_usd"] for r in rows]
+    (x0, x1), (y0, y1) = (x_ticks[0], x_ticks[-1]), (y_ticks[0], y_ticks[-1])
     px = lambda v: left + (width - left - right) * (v - x0) / (x1 - x0)
     py = lambda v: height - bottom - (height - top - bottom) * (v - y0) / (y1 - y0)
-    out = [text(pad, 22 + pad, title, 16, INK, weight="600"),
-           legend(pad, 47 + pad, [(BLUE, "ship never lost a pair in blind judging"), (ORANGE, "ship lost at least one pair")])]
-    for tick in (15, 20, 25, 30, 35, 40, 45):
+    out = [text(pad, 22 + pad, title, 16, INK, weight="600"), legend(pad, 47 + pad, key)]
+    if diamond:
+        kx = pad + sum(34 + 7.2 * len(label) for _, label in key) + 7
+        out.append(f"<rect x=\"{kx - 5.5:.1f}\" y=\"{41.5 + pad}\" width=\"11\" height=\"11\" transform=\"rotate(45 {kx:.1f} {47 + pad})\" fill=\"{MUTED}\"/>" + text(kx + 14, 48 + pad, "on the harness's own plan", 13, MUTED))
+    for tick in x_ticks:
         out.append(f"<line x1=\"{px(tick):.1f}\" y1=\"{top}\" x2=\"{px(tick):.1f}\" y2=\"{height - bottom}\" stroke=\"{LINE}\"/>" + text(px(tick), height - bottom + 20, tick, 12, MUTED, "middle"))
-    for tick in (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0):
+    for tick in y_ticks:
         out.append(f"<line x1=\"{left}\" y1=\"{py(tick):.1f}\" x2=\"{width - right}\" y2=\"{py(tick):.1f}\" stroke=\"{LINE}\"/>" + text(left - 10, py(tick) + 4, f"${tick:.2f}", 12, MUTED, "end"))
     out.append(text((left + width - right) / 2, height - 14 - pad, "Minutes for the nine tasks", 13, MUTED, "middle"))
     out.append(text(left, top - 12, "Cost at list price", 12, MUTED))
+    for r, x, y in zip(rows, xs, ys):
+        floor = r["list_known"] != r["runs"]
+        ink = colour(r)
+        fill = SURFACE if floor else ink
+        other = any(r is d for d in diamond)
+        shape = (f"<rect x=\"{px(x) - 6.5:.1f}\" y=\"{py(y) - 6.5:.1f}\" width=\"13\" height=\"13\" transform=\"rotate(45 {px(x):.1f} {py(y):.1f})\"" if other
+                 else f"<circle cx=\"{px(x):.1f}\" cy=\"{py(y):.1f}\" r=\"7.5\"")
+        out.append(f"{shape} fill=\"{fill}\" stroke=\"{ink if floor else SURFACE}\" stroke-width=\"2.5\"/>")
+        dx, dy = (nudge_diamond if other else nudge).get(r["harness"], (10, 5))
+        anchor = "end" if dx < 0 else "start"
+        out.append(text(px(x) + dx, py(y) + dy, r["name"] + suffix(r), 13, INK, anchor))
+        if notes and r["harness"] in notes and not other:
+            wide = 6.5 * len(notes[r["harness"]]) + 16      # a tag in the plum's opposite colour, with dark words in either theme
+            tag = px(x) + dx - (wide if dx < 0 else 0)
+            out.append(f"<rect x=\"{tag:.1f}\" y=\"{py(y) + dy + 7:.1f}\" width=\"{wide:.1f}\" height=\"19\" rx=\"4\" fill=\"{opposite(ORANGE)}\"/>"
+                       + text(tag + wide / 2, py(y) + dy + 20.5, notes[r["harness"]], 12, "#111111", "middle", "600"))
+    return svg(width, height, "".join(out), title)
+
+
+def opposite(colour):
+    """The complement of a #rrggbb colour: the same lightness and strength, across the colour wheel."""
+    parts = [int(colour[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{max(parts) + min(parts) - part:02x}" for part in parts)
+
+
+def standout(rows):
+    """A note for the cheapest of the rows whose cost is fully known, saying where it came on time among them all."""
+    cheapest = min((r for r in rows if r["list_known"] == r["runs"]), key=lambda r: r["list_usd"])
+    place = sorted(r["seconds"] for r in rows).index(cheapest["seconds"]) + 1
+    return {cheapest["harness"]: "cheapest and fastest" if place == 1 else f"cheapest, {ordinal(place)} fastest"}
+
+
+def gpt_scatter(rows, never_lost, title="gpt-6.1-sol: nine tasks, every harness passed all nine", **size):
     # Labels sit to the right unless that would collide with a neighbour; these offsets were set by eye for this data.
     nudge = {"codex": (4, -13), "capy": (-10, -10), "opencode": (10, 17), "deepseek-harness": (-10, 17), "devin": (10, -8), "hermes": (10, -8), "omp": (-10, 20)}
-    for r, x, y in zip(rows, xs, ys):
-        own = r["list_known"] != r["runs"]
-        colour = BLUE if r["harness"] in never_lost else ORANGE
-        fill = SURFACE if own else colour
-        out.append(f"<circle cx=\"{px(x):.1f}\" cy=\"{py(y):.1f}\" r=\"7.5\" fill=\"{fill}\" stroke=\"{colour if own else SURFACE}\" stroke-width=\"2.5\"/>")
-        dx, dy = nudge.get(r["harness"], (10, 5))
-        label = r["name"] + (" (its own figure, at least)" if own else "")
-        out.append(text(px(x) + dx, py(y) + dy, label, 13, INK, "end" if dx < 0 else "start"))
-    return svg(width, height, "".join(out), title)
+    return scatter(rows, title, [(BLUE, "ship never lost a pair in blind judging"), (ORANGE, "ship lost at least one pair")],
+                   lambda r: BLUE if r["harness"] in never_lost else ORANGE, (15, 20, 25, 30, 35, 40, 45), (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0), nudge,
+                   lambda r: " (its own figure, at least)" if r["list_known"] != r["runs"] else "", standout(rows), **size)
+
+
+def deepseek_scatter(api, hosted):
+    """The runs on DeepSeek's API and, as diamonds, the two on a harness's own plan. They did not all finish
+    the same work, so colour says which did."""
+    rows = api + hosted
+    complete = [r for r in rows if r["passed"] == r["runs"]]
+    def suffix(r):
+        why = (["stopped at 60 min"] if r["stopped"] else []) + ([f"failed {word(r['failed'])} task"] if r["failed"] else [])
+        return (", on its plan" if r in hosted else "") + (f" ({', '.join(why)})" if why else "")
+    notes = {h: f"{note} to pass all nine" for h, note in standout(complete).items()}
+    nudge = {("pi", False): (10, -24), ("omp", False): (-10, -9), ("codex", False): (10, 16), ("droid", False): (-12, 5), ("deepseek-harness", False): (-12, 5),
+             ("devin", True): (-12, 5), ("droid", True): (-12, 5)}
+    return scatter(rows, "DeepSeek V4.1 Flash, high effort: nine tasks, on DeepSeek's API and on a harness's plan",
+                   [(BLUE, "passed all nine"), (ORANGE, "passed fewer")], lambda r: BLUE if r in complete else ORANGE,
+                   (10, 20, 30, 40, 50, 60, 70, 80), (0, 0.5, 1.0, 1.5, 2.0), {h: v for (h, plan), v in nudge.items() if not plan}, suffix, notes, height=600,
+                   diamond=hosted, nudge_diamond={h: v for (h, plan), v in nudge.items() if plan})
 
 
 def card(rows, never_lost):
     """A 1600 by 900 picture for sharing: the headline and the scatter."""
-    chart = scatter(rows, 900, 620, "Time and cost for the nine tasks", never_lost, pad=26)
+    chart = gpt_scatter(rows, never_lost, "Time and cost for the nine tasks", width=900, height=620, pad=26)
     inner = chart[chart.index(">") + 1:chart.rindex("</svg>")]
     fast, slow = min(r["seconds"] for r in rows) / 60, max(r["seconds"] for r in rows) / 60
     token_rows = [r for r in rows if r["tokens_known"]["input"] == r["runs"]]
@@ -791,6 +838,12 @@ def build():
     halves = [by_id["deepseek-flash-high"][r["harness"]]["list_usd"] / r["list_usd"] for r in priced
               if r["harness"] in by_id["deepseek-flash-high"] and by_id["deepseek-flash-high"][r["harness"]]["list_known"] == 9]
     stopped = [r for r in api if r["ship_status"] == "timed_out"]
+    boxed = [r for r in gpt if r["harness"] not in HOW]
+    reread = [r["tokens"]["cached"] for r in counted if r is not cheapest]
+    api_done = [r for r in api if r["passed"] == r["runs"]]
+    assert cheapest is min(boxed, key=lambda r: r["seconds"]) and cheapest["harness"] in never_lost and cheapest["tokens"]["cached"] < min(reread), "the finding below says so"
+    assert all(r["list_known"] == r["runs"] for r in api_done), "the finding below says so"
+    assert all(min(api_done, key=key)["harness"] == cheapest["harness"] for key in (lambda r: r["seconds"], lambda r: r["list_usd"])), "the finding below says so"
     doc.h(2, "Key findings")
     doc.ul(
         f"**The harness did not change whether the work got done.** With gpt-6.1-sol at medium effort, all {word(len(gpt))} harnesses passed all nine tasks: "
@@ -801,6 +854,9 @@ def build():
         f"**The fastest harness was the one that could look at its own work.** The {fastest['name']} has a browser tool built in and made its 3D page in "
         f"{fastest['ship_seconds'] / 60:.1f} minutes; the Codex CLI, same model and same maker, took {by_id['gpt-6-1-sol']['codex']['ship_seconds'] / 60:.1f}. "
         "The app also ran outside the sandbox, so part of that gap is the setting.",
+        f"**The cheapest harness gave up nothing that was measured.** {cheapest['name']} cost the least on gpt-6.1-sol ({usd(cheapest['list_usd'])}), was the fastest of the {word(len(boxed))} run in the sandbox "
+        f"({cheapest['seconds'] / 60:.0f} minutes), and its ship never lost a pair. The saving is in context read again on every call: {cheapest['tokens']['cached'] / 1e6:.2f}M cached input tokens, "
+        f"where the others sent {min(reread) / 1e6:.2f}M to {max(reread) / 1e6:.2f}M. On DeepSeek V4.1 Flash it was again the cheapest and the fastest of the {word(len(api_done))} harnesses that passed all nine tasks.",
         f"**Passing the checks was not the same as being finished.** Every 3D page that was judged passed the automatic checks. Judged blind, side by side, "
         f"{word(len(never_lost))} of the ten never lost a pair and {word(len(lost_most))} lost eight of nine.",
         f"**A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek V4.1 Flash, through DeepSeek's API, the nine tasks cost less in every harness whose cost is fully known, about half for most "
@@ -880,6 +936,13 @@ def build():
         doc.add("notes", notes.key, notes.items)
         if key == "gpt":
             doc.img("img/scatter-gpt.svg", "Time against cost for the nine tasks on gpt-6.1-sol, one point per harness")
+        else:
+            short = min(api, key=lambda r: r["seconds"])
+            assert short["passed"] < short["runs"] and len(stopped) == 2, "the paragraph below says so"
+            doc.img("img/scatter-deepseek.svg", "Time against cost for the nine tasks on DeepSeek V4.1 Flash, one point per run: seven on DeepSeek's API and two on a harness's own plan")
+            doc.p(f"{word(len(api)).capitalize()} runs on DeepSeek's API and, as diamonds, the {word(len(hosted))} on a harness's own plan. These did not all finish the same work, so the lowest point is not the best one: {short['name']} is cheapest and quickest because its 3D run was short, "
+                  f"and it passed {word(short['passed'])} of nine. The two runs stopped at 60 minutes would have taken and cost more had they finished. A hollow point is a cost known only in part. "
+                  "The diamonds are priced at the same list price so they can be compared, but on a plan that cost is allowance and not dollars, and the plan may not serve the model with the same settings.")
 
     doc.h(2, "The 3D task, judged blind")
     doc.p(f"One task has no single right answer: a real-time 3D pirate ship at sunset, in one HTML file. Every page that was judged passed the ten automatic checks, so one person compared them side by side, "
@@ -1158,7 +1221,7 @@ def build():
              "python3 -m harness_bench judge-prepare --plan runs/pilot-v1-plan.json --task pirate-ship-3d --model gpt-6-1-sol\n"
              "python3 -m harness_bench rank --folder runs/<plan>/judging/pirate-ship-3d.gpt-6-1-sol --picks <your picks file>\n"
              "python3 scripts/publish_first_pass.py")
-    doc.p("The suite needs your own sign-ins and keys for each harness; see the repository's README. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.")
+    doc.p(f"The suite needs your own sign-ins and keys for each harness; the [guide]({REPO}/blob/main/docs/guide.md) explains them. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.")
     doc.h(2, "Data")
     doc.ul(
         "[`data/results.jsonl`](data/results.jsonl): one record per run, with status, checks, seconds, tokens, cost and notes.",
@@ -1177,7 +1240,7 @@ def on_site(text):
 
 def front_page(doc):
     """Put the report's opening (findings, the at-a-glance tables, the 3D judging, the caveats) on the repository's
-    front page, between its "Key findings" heading and the heading where the description of the tool begins."""
+    front page, between its "Key findings" heading and its "About this benchmark" heading."""
     titles = [(index, block[2]) for index, block in enumerate(doc.blocks) if block[0] == "h" and block[1] == 2]
     start = next(index for index, title in titles if title == "Key findings")
     end = next(index for index, title in titles if title == "Setup")
@@ -1192,7 +1255,7 @@ def front_page(doc):
              "It is also there [as Markdown](docs/first-pass/README.md).")
     readme = ROOT / "README.md"
     whole = readme.read_text()
-    begin, finish = whole.index("\n## Key findings\n"), whole.index("\n## The benchmark itself\n")
+    begin, finish = whole.index("\n## Key findings\n"), whole.index("\n## About this benchmark\n")
     readme.write_text(whole[:begin] + "\n" + text + "\n" + whole[finish:])
 
 
@@ -1252,7 +1315,8 @@ def main():
                 "time-deepseek": time_chart("DeepSeek V4.1 Flash, high effort: minutes for the nine tasks", rows["deepseek-flash-high"]),
                 "ships-gpt": ship_chart("gpt-6.1-sol ships: pairs won, tied and lost", ships["gpt-6-1-sol"]),
                 "ships-deepseek": ship_chart("DeepSeek V4.1 Flash ships: pairs won, tied and lost", ships["deepseek-flash-high"]),
-                "scatter-gpt": scatter(gpt, never_lost=never_lost)}
+                "scatter-gpt": gpt_scatter(gpt, never_lost),
+                "scatter-deepseek": deepseek_scatter(rows["deepseek-flash-high"], rows["deepseek-v4-1-flash-plan"])}
 
     charts = {}
     for theme, suffix in (("dark", "-dark"), ("light", "")):      # light last, so the share picture is drawn in it

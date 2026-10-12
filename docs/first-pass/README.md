@@ -11,6 +11,7 @@ Runs made 2026-10-07 to 2026-10-08 (UTC) · plan `7d7e5a45591c4afd` · 216 runs,
 - **The harness did not change whether the work got done.** With gpt-6.1-sol at medium effort, all ten harnesses passed all nine tasks: 90 of 90 runs.
 - **It changed the bill.** The same nine tasks took 19 to 40 minutes, 0.64M to 4.15M tokens and $0.75 to $1.57 at list price. Pi was the cheapest and the Codex app the fastest.
 - **The fastest harness was the one that could look at its own work.** The Codex app has a browser tool built in and made its 3D page in 6.7 minutes; the Codex CLI, same model and same maker, took 13.8. The app also ran outside the sandbox, so part of that gap is the setting.
+- **The cheapest harness gave up nothing that was measured.** Pi cost the least on gpt-6.1-sol ($0.75), was the fastest of the eight run in the sandbox (23 minutes), and its ship never lost a pair. The saving is in context read again on every call: 0.45M cached input tokens, where the others sent 1.34M to 3.82M. On DeepSeek V4.1 Flash it was again the cheapest and the fastest of the four harnesses that passed all nine tasks.
 - **Passing the checks was not the same as being finished.** Every 3D page that was judged passed the automatic checks. Judged blind, side by side, five of the ten never lost a pair and two lost eight of nine.
 - **A cheaper model cost time on the hard task, not the easy ones.** On DeepSeek V4.1 Flash, through DeepSeek's API, the nine tasks cost less in every harness whose cost is fully known, about half for most (15% to 74% of the gpt-6.1-sol price), and the eight smaller tasks were as fast. But the 3D page took 15 to 60 minutes instead of 7 to 19. Two harnesses were still editing it when stopped at an hour.
 - **One run each.** Every figure is a single run per harness, model and task. No difference in pass rate is statistically clear, and time and cost can move on a second attempt.
@@ -40,6 +41,10 @@ One row per harness, best first: tasks passed, then time. The bar is the share o
 4. The model as hosted by the harness's own plan. It is priced here at DeepSeek's API list price for comparison; on the plan it costs allowance, not dollars. Whether the plan serves the model with the same settings as the API is not visible.
 5. Most of this is the 3D run, which sent 3.0M uncached input tokens.
 6. Judged separately, as a single pair: Droid's page was picked over Devin's.
+
+![Time against cost for the nine tasks on DeepSeek V4.1 Flash, one point per run: seven on DeepSeek's API and two on a harness's own plan](img/scatter-deepseek-card.svg)
+
+Seven runs on DeepSeek's API and, as diamonds, the two on a harness's own plan. These did not all finish the same work, so the lowest point is not the best one: OpenCode is cheapest and quickest because its 3D run was short, and it passed eight of nine. The two runs stopped at 60 minutes would have taken and cost more had they finished. A hollow point is a cost known only in part. The diamonds are priced at the same list price so they can be compared, but on a plan that cost is allowance and not dollars, and the plan may not serve the model with the same settings.
 
 ## The 3D task, judged blind
 
@@ -515,7 +520,7 @@ python3 -m harness_bench rank --folder runs/<plan>/judging/pirate-ship-3d.gpt-6-
 python3 scripts/publish_first_pass.py
 ```
 
-The suite needs your own sign-ins and keys for each harness; see the repository's README. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.
+The suite needs your own sign-ins and keys for each harness; the [guide](https://github.com/Waveorwaves/harness-bench/blob/main/docs/guide.md) explains them. The two desktop apps are run by hand and recorded with `manual-start` and `manual-finish`.
 
 ## Data
 

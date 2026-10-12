@@ -66,7 +66,7 @@ What this shows:
 
 ## Adding a task
 
-1. Create `tasks/<id>/` with `task.json`, `prompt.md`, `seed/`, `evaluator/` and `reference/` (see the README for the layout, and `tasks/kanban-undo` for a complete example).
+1. Create `tasks/<id>/` with `task.json`, `prompt.md`, `seed/`, `evaluator/` and `reference/` (see the [guide](guide.md#task-format) for the layout, and `tasks/kanban-undo` for a complete example).
 2. Write the prompt first, then the checks, and make every check traceable to a sentence in the prompt or the seed's README.
 3. `python3 -m harness_bench validate-tasks --suite <a suite listing it> --sandbox local` must report the seed failing and the reference passing.
 4. Have someone (or a model) who has not seen the checks attempt it from the prompt. If they fail on something the prompt does not say, fix the prompt or drop the check.
